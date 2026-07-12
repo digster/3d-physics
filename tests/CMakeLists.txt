@@ -7,9 +7,12 @@
 add_executable(p3d_tests
     test_main.cpp
     test_math.cpp
-    test_integration.cpp)
+    test_integration.cpp
+    test_physics.cpp)
 
 target_include_directories(p3d_tests PRIVATE ${CMAKE_SOURCE_DIR})
-target_link_libraries(p3d_tests PRIVATE doctest::doctest project_warnings)
+# test_physics.cpp exercises the force generators (forces.cpp), so it links the
+# physics engine. p3d_physics has no SDL dependency, keeping the tests headless.
+target_link_libraries(p3d_tests PRIVATE doctest::doctest p3d_physics project_warnings)
 
 add_test(NAME unit_tests COMMAND p3d_tests)

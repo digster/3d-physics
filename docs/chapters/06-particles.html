@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 6 · Particles &amp; Forces — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="06">
+<article>
+  <span class="eyebrow">Part II · Particles &amp; Forces · Chapter 6</span>
+  <h1>Particles &amp; Forces</h1>
+  <p class="lead">Time to build actual physics. A <em>particle</em> is the simplest
+  thing a force can act on — a point with a mass. String a few hundred together and
+  you have a fountain. The pattern we set up here, the “force accumulator”, is the
+  backbone of every force-based engine in the rest of the course.</p>
+
+  <h2>Goal</h2>
+  <p>Understand Newton’s second law as code, meet the force-accumulator loop, and use
+  it to build a fountain driven by gravity and air drag. New engine files:
+  <code>physics/particle.hpp</code> and <code>physics/forces.hpp</code>. Demo:
+  <code>chapters/06-particles/main.cpp</code>.</p>
+
+  <h2>What is a particle?</h2>
+  <p>A <strong>particle</strong> is a <em>point mass</em>: it has a position and a
+  velocity and a mass, but <strong>no size and no orientation</strong>. That’s a
+  feature, not a limitation — with nothing to rotate, the physics is pure Newton and
+  we can focus entirely on how forces move things. (Rotation arrives in Part III, and
+  it’s a whole story of its own.)</p>
+
+  <h2>Newton’s second law, as code</h2>
+  <p>The one law this chapter rests on:</p>
+  <div class="eq">
+    <math display="block"><mrow><mi>F</mi><mo>=</mo><mi>m</mi><mi>a</mi></mrow></math>
+  </div>
+  <p>Force equals mass times acceleration. We know the forces and the mass; we want the
+  motion, so we rearrange to <math><mi>a</mi><mo>=</mo><mi>F</mi><mo>/</mo><mi>m</mi></math>.
+  That acceleration feeds the semi-implicit Euler integrator from Chapter 5:
+  velocity changes by <math><mi>a</mi><mo>·</mo><mi>Δt</mi></math>, then position
+  changes by the new velocity.</p>
+
+  <div class="callout tip">
+    <span class="label">Why we store <em>inverse</em> mass</span>
+    <p>Look closely and <code>Particle</code> stores <code>invMass</code> (that is,
+    <math><mn>1</mn><mo>/</mo><mi>m</mi></math>) rather than mass. Two reasons. First,
+    <math><mi>a</mi><mo>=</mo><mi>F</mi><mo>/</mo><mi>m</mi></math> becomes a multiply
+    (<math><mi>F</mi><mo>·</mo><mtext>invMass</mtext></math>), which is both faster and
+    tidier. Second — and this is the big one — it gives us a clean way to say
+    “infinitely heavy, never moves”: an inverse mass of <strong>0</strong>. Anchors,
+    pinned rope ends, and pinned cloth corners are all just particles with
+    <code>invMass = 0</code>. You’ll see that trick constantly from here on.</p>
+  </div>
+
+  <h2>The force-accumulator pattern</h2>
+  <p>Real objects feel several forces at once — gravity <em>and</em> drag <em>and</em>
+  wind. The elegant way to handle that is the superposition principle: forces simply
+  add. So each step we zero an accumulator, let every force <em>add</em> its
+  contribution, then integrate once with the total.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 640 210" role="img" aria-label="The force accumulator each step">
+      <defs><marker id="fa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="var(--d-accent2)"/></marker></defs>
+      <rect x="30" y="30" width="140" height="34" rx="8" fill="var(--surface-2)" stroke="var(--d-grid)"/><text x="100" y="52" text-anchor="middle" font-size="12" fill="var(--d-b)">gravity</text>
+      <rect x="30" y="78" width="140" height="34" rx="8" fill="var(--surface-2)" stroke="var(--d-grid)"/><text x="100" y="100" text-anchor="middle" font-size="12" fill="var(--d-a)">drag</text>
+      <rect x="30" y="126" width="140" height="34" rx="8" fill="var(--surface-2)" stroke="var(--d-grid)"/><text x="100" y="148" text-anchor="middle" font-size="12" fill="var(--d-e)">wind…</text>
+
+      <rect x="250" y="70" width="150" height="60" rx="10" fill="none" stroke="var(--d-accent)" stroke-width="2"/>
+      <text x="325" y="95" text-anchor="middle" font-size="13" fill="var(--d-stroke)" font-weight="600">forceAccum</text>
+      <text x="325" y="115" text-anchor="middle" font-size="11" fill="var(--d-muted)">Σ forces</text>
+
+      <rect x="470" y="70" width="140" height="60" rx="10" fill="var(--d-accent)" opacity="0.9"/>
+      <text x="540" y="95" text-anchor="middle" font-size="13" font-weight="700" fill="#06231f">integrate</text>
+      <text x="540" y="114" text-anchor="middle" font-size="10.5" fill="#06231f">a = F·invMass</text>
+
+      <path d="M170 47 L250 88" stroke="var(--d-accent2)" stroke-width="1.5" marker-end="url(#fa)"/>
+      <path d="M170 95 L250 100" stroke="var(--d-accent2)" stroke-width="1.5" marker-end="url(#fa)"/>
+      <path d="M170 143 L250 112" stroke="var(--d-accent2)" stroke-width="1.5" marker-end="url(#fa)"/>
+      <path d="M400 100 H470" stroke="var(--d-accent2)" stroke-width="1.5" marker-end="url(#fa)"/>
+      <text x="325" y="175" text-anchor="middle" font-size="11" fill="var(--d-muted)">…then clear the accumulator for next step</text>
+    </svg>
+    <figcaption>Each step: clear, let every force add itself, integrate once, clear
+    again. Because forces just sum, their call order never matters.</figcaption>
+  </figure>
+
+  <pre><code class="cpp">p.clearForces();
+force::gravity(p, {0, -9.81f, 0});   // each generator only ADDS to forceAccum
+if (useDrag) force::drag(p, 0.06f, 0.02f);
+p.integrateForces(dt);               // a = forceAccum * invMass, then Euler</code></pre>
+
+  <h2>Gravity treats every mass the same</h2>
+  <p>Gravity is special: heavy and light things fall at the same rate (Galileo’s
+  leaning-tower point). Our <code>gravity</code> generator gets this right by adding a
+  force of <math><mi>m</mi><mi>g</mi></math> — so when the integrator divides by
+  <math><mi>m</mi></math>, the mass cancels and the acceleration is exactly
+  <math><mi>g</mi></math>:</p>
+  <pre><code class="cpp">void gravity(Particle&amp; p, const Vec3&amp; g) {
+    if (p.isStatic()) return;
+    p.addForce(g * p.mass());        // F = m·g  →  a = F/m = g, for any mass
+}</code></pre>
+
+  <h2>Drag: air fights back</h2>
+  <p>Without drag, a fountain droplet would trace a perfect parabola and bounce
+  forever. <strong>Drag</strong> is a force that always opposes motion, growing with
+  speed. We use the standard two-term model — a linear part and a squared part:</p>
+  <div class="eq">
+    <math display="block"><mrow><mi>F</mi><mtext>drag</mtext><mo>=</mo><mo>−</mo><mover><mi>v</mi><mo>^</mo></mover><mo>(</mo><msub><mi>k</mi><mn>1</mn></msub><mo>|</mo><mi>v</mi><mo>|</mo><mo>+</mo><msub><mi>k</mi><mn>2</mn></msub><msup><mrow><mo>|</mo><mi>v</mi><mo>|</mo></mrow><mn>2</mn></msup><mo>)</mo></mrow></math>
+  </div>
+  <p>Here <math><mover><mi>v</mi><mo>^</mo></mover></math> (“v-hat”) is the unit vector
+  in the direction of motion, so the whole force points <em>backwards</em> along the
+  velocity. The <math><msub><mi>k</mi><mn>1</mn></msub></math> term dominates when slow,
+  the <math><msub><mi>k</mi><mn>2</mn></msub></math> term when fast. Drag is what makes
+  the droplets arc believably and lose energy on each bounce until they settle.</p>
+
+  <h2>Making a fountain</h2>
+  <p>The demo keeps a fixed pool of particles. Each gets launched from the nozzle with a
+  randomised upward velocity and a lifetime; when its life runs out (or it settles on
+  the floor) it is <em>recycled</em> — teleported back to the nozzle with a fresh
+  launch. That recycling is why a couple hundred particles can look like an endless
+  spray. Colour is mapped to speed, so you can literally see the fast upward jet
+  (amber) slow, arc over, and fall (blue).</p>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch06_particles      # 1 fountain · 2 + wind · 3 no drag</code></pre>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>Press <kbd>3</kbd> to turn drag off and compare the arcs with scene <kbd>1</kbd>.
+      Without drag the droplets fly higher and keep their energy, bouncing longer.</li>
+    <li>Press <kbd>2</kbd> to add a steady wind — a constant sideways force added to the
+      accumulator. Notice how it just <em>adds</em> to gravity; that’s superposition.</li>
+    <li>In the code, change the launch <code>speed</code> range in <code>respawn</code>
+      and watch the fountain’s height respond.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>A particle is a point mass — position, velocity, mass, no rotation.</li>
+    <li><math><mi>a</mi><mo>=</mo><mi>F</mi><mo>/</mo><mi>m</mi></math>; storing
+      <strong>inverse mass</strong> makes this a multiply and lets 0 mean “immovable”.</li>
+    <li>The <strong>force-accumulator</strong> pattern: clear → add every force →
+      integrate once. Forces superpose, so order is irrelevant.</li>
+    <li>Gravity adds <math><mi>m</mi><mi>g</mi></math> so all masses fall equally; drag
+      opposes velocity.</li>
+  </ul>
+</article>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 7 · Springs &amp; Dampers — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="07">
+<article>
+  <span class="eyebrow">Part II · Particles &amp; Forces · Chapter 7</span>
+  <h1>Springs &amp; Dampers</h1>
+  <p class="lead">Connect two particles with a spring and you can build soft, springy
+  structures — but a pure spring rings forever. Add a <em>damper</em> and the motion
+  settles. How it settles — overshooting, or gliding smoothly to rest — is governed by
+  one number, and it’s worth understanding deeply because damping shows up everywhere
+  from suspension to UI animation.</p>
+
+  <h2>Goal</h2>
+  <p>Learn Hooke’s law, add damping, and understand the three damping regimes
+  (under, critical, over). New force generators live in <code>physics/forces.hpp</code>;
+  the demo is <code>chapters/07-springs/main.cpp</code>.</p>
+
+  <h2>Hooke’s law: the spring force</h2>
+  <p>A spring wants to be a particular length, its <em>rest length</em>. Stretch it or
+  squash it and it pushes back, harder the further you are from rest:</p>
+  <div class="eq">
+    <math display="block"><mrow><mi>F</mi><mo>=</mo><mo>−</mo><mi>k</mi><mo>·</mo><mi>x</mi></mrow></math>
+  </div>
+  <p>Here <math><mi>x</mi></math> is the <em>stretch</em> (current length minus rest
+  length) and <math><mi>k</mi></math> is the <strong>stiffness</strong> — a big
+  <math><mi>k</mi></math> is a stiff spring. The minus sign is the whole personality of
+  a spring: the force always points back toward rest. Stretch it and it pulls in; squash
+  it and it pushes out.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 640 150" role="img" aria-label="A spring pushes back toward its rest length">
+      <defs><marker id="s-f" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--d-c)"/></marker></defs>
+      <!-- rest -->
+      <text x="80" y="28" font-size="12" fill="var(--d-muted)">rest length</text>
+      <line x1="40" y1="40" x2="200" y2="40" stroke="var(--d-grid)" stroke-width="2"/>
+      <circle cx="200" cy="40" r="8" fill="var(--d-a)"/>
+      <!-- stretched -->
+      <text x="80" y="80" font-size="12" fill="var(--d-muted)">stretched → pulled back in</text>
+      <line x1="40" y1="92" x2="300" y2="92" stroke="var(--d-grid)" stroke-width="2" stroke-dasharray="4 3"/>
+      <circle cx="300" cy="92" r="8" fill="var(--d-a)"/>
+      <line x1="300" y1="92" x2="250" y2="92" stroke="var(--d-c)" stroke-width="3" marker-end="url(#s-f)"/>
+      <!-- squashed -->
+      <text x="80" y="128" font-size="12" fill="var(--d-muted)">squashed → pushed back out</text>
+      <line x1="40" y1="140" x2="130" y2="140" stroke="var(--d-grid)" stroke-width="2" stroke-dasharray="4 3"/>
+      <circle cx="130" cy="140" r="8" fill="var(--d-a)"/>
+      <line x1="130" y1="140" x2="180" y2="140" stroke="var(--d-c)" stroke-width="3" marker-end="url(#s-f)"/>
+    </svg>
+    <figcaption>The restoring force (coral) always points back toward the rest length,
+    and grows with how far you’ve pushed away from it.</figcaption>
+  </figure>
+
+  <h2>Why a plain spring never stops</h2>
+  <div class="callout intuition">
+    <span class="label">Intuition</span>
+    A spring endlessly trades <em>potential</em> energy (stored in the stretch) for
+    <em>kinetic</em> energy (motion) and back. Pull a mass down and release: the spring
+    yanks it up, it overshoots rest, compresses, gets pushed back down, overshoots
+    again… With nothing to remove energy, it oscillates forever. To make it settle we
+    need something that <em>drains</em> energy — and that something is a damper.
+  </div>
+
+  <h2>The damper: resist the <em>speed</em> of stretching</h2>
+  <p>A damper is like a shock absorber: a force proportional to how fast the spring is
+  currently lengthening or shortening, opposing that change. If <math><mi>c</mi></math>
+  is the damping coefficient and <math><msub><mi>v</mi><mtext>rel</mtext></msub></math>
+  is the rate of stretch (the relative velocity of the ends along the spring), the
+  damper adds <math><mo>−</mo><mi>c</mi><msub><mi>v</mi><mtext>rel</mtext></msub></math>.
+  It always fights motion, so it can only remove energy — exactly what we want.</p>
+
+  <h2>The three regimes</h2>
+  <p>Combine spring and damper and the settling behaviour falls into three cases,
+  decided by the <strong>damping ratio</strong> <math><mi>ζ</mi></math> (“zeta”), which
+  compares your damping to the special “critical” amount
+  <math><msub><mi>c</mi><mtext>crit</mtext></msub><mo>=</mo><mn>2</mn><msqrt><mrow><mi>k</mi><mi>m</mi></mrow></msqrt></math>:</p>
+  <ul>
+    <li><strong>Under-damped</strong> (<math><mi>ζ</mi><mo>&lt;</mo><mn>1</mn></math>):
+      overshoots the target and rings before settling. Think a plucked guitar string.</li>
+    <li><strong>Critically damped</strong> (<math><mi>ζ</mi><mo>=</mo><mn>1</mn></math>):
+      returns to rest as fast as possible <em>without</em> overshooting. The sweet spot
+      for a door closer or a camera that should snap to a target.</li>
+    <li><strong>Over-damped</strong> (<math><mi>ζ</mi><mo>&gt;</mo><mn>1</mn></math>):
+      returns slowly, as if moving through honey — no overshoot, but sluggish.</li>
+  </ul>
+
+  <p>Drag the slider and watch the settling curve change. The faint curves are the three
+  canonical regimes for reference; the bold one is your chosen <math><mi>ζ</mi></math>:</p>
+
+  <div class="widget js-damping-widget">
+    <canvas></canvas>
+    <div class="controls">
+      <label>damping ratio ζ
+        <input class="zeta" type="range" min="0" max="2" step="0.01" value="0.25">
+        <span class="zeta-val">0.25</span>
+      </label>
+      <span class="regime" style="font-weight:600"></span>
+    </div>
+  </div>
+
+  <h2>The code</h2>
+  <p>Both effects live in one function: the spring term plus the damping term, applied
+  equal-and-opposite to the two ends (so the pair’s momentum is untouched):</p>
+  <pre><code class="cpp">Vec3 delta = pa - pb;                       // vector between the two ends
+const Real dist = length(delta);
+const Vec3 dir  = delta * (1 / dist);       // unit direction along the spring
+
+const Real stretch = dist - rest;
+Real magnitude = -k * stretch;              // Hooke: pull back toward rest
+
+if (c != 0) {                               // damping: resist the rate of stretch
+    const Real closingSpeed = dot(va - vb, dir);
+    magnitude -= c * closingSpeed;
+}
+return dir * magnitude;                      // apply +F to a, -F to b</code></pre>
+
+  <div class="callout tip">
+    <span class="label">A subtlety: stiff springs and the timestep</span>
+    <p>The stiffer the spring (big <math><mi>k</mi></math>), the faster it reacts — and
+    the smaller a timestep the integrator needs to keep up. Push <math><mi>k</mi></math>
+    too high for your <math><mi>Δt</mi></math> and even semi-implicit Euler will buzz or
+    blow up. That tension is exactly why the next chapter reaches for a completely
+    different, unconditionally stable technique for things that must be <em>rigid</em>,
+    like ropes.</p>
+  </div>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch07_springs        # 1 spring pendulum · 2 damping race · 3 spring chain</code></pre>
+  <p>Scene <kbd>2</kbd> is the widget above, in 3D: three identical springs with
+  under / critical / over damping, all released together. The grey dot marks the target
+  — watch which mass overshoots it and which crawls.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>In the widget, set <math><mi>ζ</mi></math> to exactly 1.00 and nudge it either
+      way. Just below, a tiny overshoot appears; just above, it slows down. Critical
+      damping really is the knife-edge fastest-without-overshoot.</li>
+    <li>Scene <kbd>3</kbd> is a chain of springs — a soft pendulum. Notice it both swings
+      <em>and</em> stretches. That stretchiness is the spring approach’s weakness, and
+      the motivation for Chapter 8.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>Hooke’s law: <math><mi>F</mi><mo>=</mo><mo>−</mo><mi>k</mi><mi>x</mi></math>, a
+      restoring force proportional to stretch.</li>
+    <li>A pure spring conserves energy and rings forever; a <strong>damper</strong>
+      removes energy by resisting the rate of stretch.</li>
+    <li>The damping ratio <math><mi>ζ</mi></math> sets the regime: under (rings),
+      critical (fastest, no overshoot), over (sluggish).</li>
+    <li>Stiff springs demand small timesteps — the opening for position-based methods.</li>
+  </ul>
+</article>
+</body>
+</html>

@@ -42,7 +42,12 @@ public:
     // Queue a mesh for drawing, positioned/oriented/scaled by `model` and
     // tinted `color`. Triangles are transformed, backface-culled, near-clipped
     // and flat-shaded now; actual submission happens in end().
-    void drawMesh(const Mesh& mesh, const Mat4& model, const Color& color);
+    //
+    // `doubleSided` (added in Chapter 9 for cloth): a thin sheet has no "inside",
+    // so we must not cull its back faces, and we light both sides. Pass true for
+    // open surfaces like flags; leave false for closed solids.
+    void drawMesh(const Mesh& mesh, const Mat4& model, const Color& color,
+                  bool doubleSided = false);
 
     // Queue a world-space line segment (for debug overlays: axes, AABBs,
     // contact normals). Lines are drawn on top of the shaded geometry.

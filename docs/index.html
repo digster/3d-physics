@@ -28,7 +28,7 @@
     the goal is that a motivated beginner can follow every line.</p>
   </div>
 
-  <!-- The seven-part arc. Part I is where we are; later parts are greyed. -->
+  <!-- The seven-part arc. Parts I–II are available; later parts are greyed. -->
   <figure class="diagram">
     <svg viewBox="0 0 880 150" role="img" aria-label="Course roadmap across seven parts">
       <line x1="60" y1="52" x2="820" y2="52" stroke="var(--d-grid)" stroke-width="2"/>
@@ -39,9 +39,14 @@
         <text x="60" y="92" text-anchor="middle" font-size="12" fill="var(--d-stroke)" font-weight="600">Foundations</text>
         <text x="60" y="108" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">Ch 1–5</text>
       </g>
+      <g>
+        <circle cx="187" cy="52" r="15" fill="var(--d-accent)"/>
+        <text x="187" y="57" text-anchor="middle" font-size="13" font-weight="700" fill="#06231f">II</text>
+        <text x="187" y="92" text-anchor="middle" font-size="12" fill="var(--d-stroke)" font-weight="600">Particles</text>
+        <text x="187" y="108" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">Ch 6–9</text>
+      </g>
       <!-- upcoming -->
       <g fill="var(--d-muted)">
-        <g><circle cx="187" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="187" y="56" text-anchor="middle" font-size="11">II</text><text x="187" y="92" text-anchor="middle" font-size="11">Particles</text></g>
         <g><circle cx="314" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="314" y="56" text-anchor="middle" font-size="11">III</text><text x="314" y="92" text-anchor="middle" font-size="11">Rigid bodies</text></g>
         <g><circle cx="441" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="441" y="56" text-anchor="middle" font-size="11">IV</text><text x="441" y="92" text-anchor="middle" font-size="11">Collision</text></g>
         <g><circle cx="568" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="568" y="56" text-anchor="middle" font-size="11">V</text><text x="568" y="92" text-anchor="middle" font-size="11">Response</text></g>
@@ -49,7 +54,7 @@
         <g><circle cx="820" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="820" y="56" text-anchor="middle" font-size="11">VII</text><text x="820" y="92" text-anchor="middle" font-size="11">Soft bodies</text></g>
       </g>
     </svg>
-    <figcaption>The road ahead. This release covers <strong>Part I</strong>; later parts land part by part.</figcaption>
+    <figcaption>The road ahead. This release covers <strong>Parts I–II</strong>; later parts land part by part.</figcaption>
   </figure>
 
   <h2>Start here — Part I: Foundations</h2>
@@ -82,6 +87,35 @@
       <div class="part">Chapter 5</div>
       <div class="ttl">Numerical Integration</div>
       <div class="desc">Euler, symplectic Euler, and RK4 raced head-to-head — why the timestep is the soul of a stable sim.</div>
+    </a>
+  </div>
+
+  <h2>Part II: Particles &amp; Forces</h2>
+  <p>Now we build the physics. These four chapters introduce the from-scratch engine
+  (<code>physics/</code>) and the two great families of simulation: <strong>force-based</strong>
+  (accumulate forces, then integrate) and <strong>position-based</strong> (move freely,
+  then satisfy constraints). By the end you have cloth rippling in the wind.</p>
+
+  <div class="cards">
+    <a class="card" href="chapters/06-particles.html">
+      <div class="part">Chapter 6</div>
+      <div class="ttl">Particles &amp; Forces</div>
+      <div class="desc">Newton’s F = m·a and the force-accumulator pattern, shown as a fountain of hundreds of droplets.</div>
+    </a>
+    <a class="card" href="chapters/07-springs.html">
+      <div class="part">Chapter 7</div>
+      <div class="ttl">Springs &amp; Dampers</div>
+      <div class="desc">Hooke’s law and damping — under, critical, and over — with an interactive settling-curve widget.</div>
+    </a>
+    <a class="card" href="chapters/08-ropes.html">
+      <div class="part">Chapter 8</div>
+      <div class="ttl">Ropes &amp; Constraints</div>
+      <div class="desc">Verlet integration and Jakobsen position projection: a rope that can’t explode, however you yank it.</div>
+    </a>
+    <a class="card" href="chapters/09-cloth.html">
+      <div class="part">Chapter 9</div>
+      <div class="ttl">Cloth</div>
+      <div class="desc">A grid of constraints — structural, shear, and bend — woven into a flag that waves in the wind.</div>
     </a>
   </div>
 

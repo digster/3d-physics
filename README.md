@@ -38,7 +38,7 @@ engine with joints and soft bodies:
 | VI · Constraints & Joints| 19  | connect bodies: chains, hinges, ragdolls |
 | VII · Beyond Rigid Bodies| 20  | XPBD soft bodies (jello) |
 
-*(Part I is implemented first; later parts land part-by-part.)*
+*(Parts I–II are implemented; later parts land part by part.)*
 
 ---
 
@@ -67,6 +67,7 @@ All demo binaries land in `build/bin/`.
 ```sh
 ./build/bin/ch01_hello_sdl3      # the first chapter
 ./build/bin/ch05_integration     # numerical integration playground
+./build/bin/ch09_cloth           # a flag waving in the wind (Part II finale)
 ```
 
 Every 3D demo shares the same controls:

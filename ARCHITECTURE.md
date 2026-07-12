@@ -110,11 +110,41 @@ chapter overrides `fixedUpdate(dt)` and `render(alpha)`.
 ## `physics/` — the engine (Part II onward)
 
 Grown one part at a time; each chapter adds files rather than editing old ones
-where possible. Planned progression: particles + force generators + positional
-constraints (II) → rigid bodies + inertia tensors (III) → colliders, broadphase,
-SAT, GJK/EPA (IV) → contact manifolds + sequential-impulse solver + sleeping
-(V) → joints (VI) → XPBD soft bodies (VII). This section will be filled in as
-those parts land.
+where possible. It depends only on the header-only math in `common/` — no SDL,
+no rendering — so it links into `p3d_physics`, is unit-tested in isolation
+(`tests/test_physics.cpp`), and could be reused headless.
+
+### Part II — Particles & Forces (implemented)
+
+| File | Responsibility | Introduced in |
+|------|----------------|---------------|
+| `physics/particle.hpp` | a point mass: position, velocity, **inverse mass** (0 = immovable), a force accumulator, and *both* integration paths | Ch 6 |
+| `physics/forces.hpp/.cpp` | force generators that only *add* to a particle's accumulator: gravity, drag, spring/anchored spring (with damping), bungee | Ch 6–7 |
+| `physics/constraint.hpp` | `DistanceConstraint` + `satisfyConstraints` — Jakobsen position projection | Ch 8–9 |
+
+**Two simulation styles, deliberately side by side.** `Particle` supports both,
+so the tutorial can contrast them directly:
+
+- **Force-based** (Ch 6–7): callers sum forces into `forceAccum` via the
+  generators, then `integrateForces()` runs semi-implicit Euler
+  (`a = forceAccum · invMass`). This is the classic force→accumulate→integrate
+  loop; forces superpose, so their order is irrelevant.
+- **Position-based / Verlet** (Ch 8–9): `integrateVerlet()` advances position
+  from its own history (no explicit velocity), then `satisfyConstraints()`
+  *projects* particle positions to satisfy distance constraints, iterating a few
+  passes to converge (relaxation). Inextensible by construction, so it cannot
+  explode the way a stiff spring can. Pinning is just `invMass = 0`.
+
+Cloth (Ch 9) is the payoff: a grid of Verlet particles laced with structural,
+shear, and bend distance constraints, rendered by rebuilding a `Mesh` from the
+particle positions each frame and drawing it **double-sided** (a flag has no
+"inside") — the one rendering feature Part II added to `Renderer3D::drawMesh`.
+
+### Planned (later parts)
+
+Rigid bodies + inertia tensors (III) → colliders, broadphase, SAT, GJK/EPA (IV)
+→ contact manifolds + sequential-impulse solver + sleeping (V) → joints (VI) →
+XPBD soft bodies (VII). Filled in as those parts land.
 
 ## `docs/` — the tutorial (no build step)
 

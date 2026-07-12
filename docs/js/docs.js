@@ -16,11 +16,15 @@
     { part: "Part I · Foundations", num: "03", slug: "03-matrices",     title: "Matrices & Transforms" },
     { part: "Part I · Foundations", num: "04", slug: "04-camera",       title: "Camera & Projection" },
     { part: "Part I · Foundations", num: "05", slug: "05-integration",  title: "Numerical Integration" },
+    { part: "Part II · Particles & Forces", num: "06", slug: "06-particles", title: "Particles & Forces" },
+    { part: "Part II · Particles & Forces", num: "07", slug: "07-springs",   title: "Springs & Dampers" },
+    { part: "Part II · Particles & Forces", num: "08", slug: "08-ropes",     title: "Ropes & Constraints" },
+    { part: "Part II · Particles & Forces", num: "09", slug: "09-cloth",     title: "Cloth" },
   ];
 
   // Later parts, shown greyed-out on the roadmap so the arc is visible.
   const UPCOMING = [
-    "Part II · Particles & Forces", "Part III · Rigid Bodies",
+    "Part III · Rigid Bodies",
     "Part IV · Collision Detection", "Part V · Collision Response",
     "Part VI · Constraints & Joints", "Part VII · Beyond Rigid Bodies",
   ];
@@ -248,6 +252,97 @@
     requestAnimationFrame(frame);
   }
 
+  // --- Interactive widget: damping ------------------------------------------
+  // Plots the settling curve of a mass-spring-damper as you drag the damping
+  // ratio zeta. zeta < 1 overshoots and rings; zeta = 1 (critical) returns
+  // fastest without overshoot; zeta > 1 is sluggish. Mirrors Chapter 7 scene 2.
+  function initDampingWidget(root) {
+    const canvas = root.querySelector("canvas");
+    const ctx = canvas.getContext("2d");
+    const slider = root.querySelector(".zeta");
+    const zetaOut = root.querySelector(".zeta-val");
+    const regimeOut = root.querySelector(".regime");
+    const w0 = 7.0;           // natural frequency
+    const T = 3.0;            // seconds of the plot
+
+    function cssVar(n) { return getComputedStyle(document.body).getPropertyValue(n).trim(); }
+
+    // Displacement over time for x(0)=1, x'(0)=0, given a damping ratio z.
+    function displacement(z, t) {
+      if (Math.abs(z - 1) < 1e-3) {                 // critically damped
+        return Math.exp(-w0 * t) * (1 + w0 * t);
+      } else if (z < 1) {                           // under-damped: rings
+        const wd = w0 * Math.sqrt(1 - z * z);
+        return Math.exp(-z * w0 * t) * (Math.cos(wd * t) + (z * w0 / wd) * Math.sin(wd * t));
+      } else {                                      // over-damped: crawls back
+        const wd = w0 * Math.sqrt(z * z - 1);
+        return Math.exp(-z * w0 * t) * (Math.cosh(wd * t) + (z * w0 / wd) * Math.sinh(wd * t));
+      }
+    }
+
+    function curveColor(z) {
+      if (z < 0.98) return "#f0645f";               // under  → coral
+      if (z <= 1.02) return "#29c8be";              // critical → teal
+      return "#a578eb";                             // over   → violet
+    }
+    function regimeName(z) {
+      if (z < 0.98) return "under-damped (overshoots and rings)";
+      if (z <= 1.02) return "critically damped (fastest, no overshoot)";
+      return "over-damped (slow, sluggish)";
+    }
+
+    function draw() {
+      const z = parseFloat(slider.value);
+      zetaOut.textContent = z.toFixed(2);
+      regimeOut.textContent = regimeName(z);
+      regimeOut.style.color = curveColor(z);
+
+      const cssW = canvas.clientWidth || 680, cssH = 260;
+      const dpr = window.devicePixelRatio || 1;
+      if (canvas.width !== cssW * dpr || canvas.height !== cssH * dpr) {
+        canvas.width = cssW * dpr; canvas.height = cssH * dpr; canvas.style.height = cssH + "px";
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, cssW, cssH);
+
+      const padL = 34, padR = 12, padT = 14, padB = 22;
+      const plotW = cssW - padL - padR, plotH = cssH - padT - padB;
+      const yMax = 1.35, yMin = -0.7;
+      const X = (t) => padL + (t / T) * plotW;
+      const Y = (v) => padT + (1 - (v - yMin) / (yMax - yMin)) * plotH;
+
+      // Zero (target) line and the starting-displacement line.
+      ctx.strokeStyle = cssVar("--border"); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(padL, Y(0)); ctx.lineTo(padL + plotW, Y(0)); ctx.stroke();
+      ctx.fillStyle = cssVar("--muted"); ctx.font = "11px system-ui";
+      ctx.fillText("target (0)", padL + 2, Y(0) - 4);
+      ctx.fillText("start (1)", padL + 2, Y(1) - 4);
+      ctx.strokeStyle = cssVar("--border"); ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(padL, Y(1)); ctx.lineTo(padL + plotW, Y(1)); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Faint reference curves for the three canonical regimes.
+      [[0.25, "#f0645f"], [1.0, "#29c8be"], [2.0, "#a578eb"]].forEach(([z0, col]) => {
+        ctx.strokeStyle = col; ctx.globalAlpha = 0.18; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let i = 0; i <= 240; i++) { const t = (i / 240) * T; const p = [X(t), Y(displacement(z0, t))]; i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); }
+        ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+
+      // The live curve for the chosen zeta.
+      ctx.strokeStyle = curveColor(z); ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i <= 320; i++) { const t = (i / 320) * T; const p = [X(t), Y(displacement(z, t))]; i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); }
+      ctx.stroke();
+      ctx.fillStyle = cssVar("--muted"); ctx.fillText("time →", padL + plotW - 46, padT + plotH + 16);
+    }
+
+    slider.addEventListener("input", draw);
+    window.addEventListener("resize", draw);
+    draw();
+  }
+
   // --- Wire everything up ----------------------------------------------------
   document.addEventListener("DOMContentLoaded", function () {
     buildTopbar();
@@ -273,6 +368,7 @@
 
     highlightAll();
     document.querySelectorAll(".js-integrator-widget").forEach(initIntegratorWidget);
+    document.querySelectorAll(".js-damping-widget").forEach(initDampingWidget);
   });
 
   // Expose the upcoming-parts list for the home page to render.

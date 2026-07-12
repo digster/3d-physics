@@ -81,7 +81,8 @@ std::vector<Vec3> clipAgainstNear(const std::array<Vec3, 3>& tri) {
 }
 }  // namespace
 
-void Renderer3D::drawMesh(const Mesh& mesh, const Mat4& model, const Color& color) {
+void Renderer3D::drawMesh(const Mesh& mesh, const Mat4& model, const Color& color,
+                          bool doubleSided) {
     const Vec3 toLight = -lightDir_;   // direction from surface toward the light
     const int  triCount = mesh.triangleCount();
 
@@ -114,12 +115,14 @@ void Renderer3D::drawMesh(const Mesh& mesh, const Mat4& model, const Color& colo
         // wireframe mode, where we want to see every edge.
         const Vec3 viewNormal = cross(v1 - v0, v2 - v0);
         const Vec3 centroid   = (v0 + v1 + v2) * (Real(1) / Real(3));
-        if (!wireframe_ && dot(viewNormal, centroid) >= 0) continue;
+        if (!wireframe_ && !doubleSided && dot(viewNormal, centroid) >= 0) continue;
 
         // Stage 4: flat shading. One Lambert term — brightness is how squarely
         // the surface faces the light — lifted by an ambient floor so shadowed
-        // faces stay readable.
-        const Real lambert    = std::max(Real(0), dot(normal, toLight));
+        // faces stay readable. A double-sided surface is lit on whichever side
+        // faces the light, so we take the absolute value of the dot product.
+        const Real facing     = dot(normal, toLight);
+        const Real lambert    = doubleSided ? std::fabs(facing) : std::max(Real(0), facing);
         const Real brightness = ambient_ + (Real(1) - ambient_) * lambert;
         const Color shaded    = color.shaded(brightness);
 

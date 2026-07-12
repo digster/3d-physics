@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 8 · Ropes &amp; Constraints — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="08">
+<article>
+  <span class="eyebrow">Part II · Particles &amp; Forces · Chapter 8</span>
+  <h1>Ropes &amp; Constraints</h1>
+  <p class="lead">A rope shouldn’t stretch. You <em>could</em> make one from very stiff
+  springs, but stiff springs fight the integrator and explode. This chapter takes a
+  completely different, wonderfully stable route: let the beads move freely, then just
+  <em>move them back</em> to the right distance. That single idea — a position
+  constraint — carries us all the way to cloth.</p>
+
+  <h2>Goal</h2>
+  <p>Learn Verlet integration and Jakobsen’s constraint projection, and use them to
+  build a rope that can’t explode. New engine file: <code>physics/constraint.hpp</code>
+  (plus the Verlet path in <code>physics/particle.hpp</code>). Demo:
+  <code>chapters/08-ropes/main.cpp</code>.</p>
+
+  <h2>Why not just use stiff springs?</h2>
+  <div class="callout warn">
+    <span class="label">The trap</span>
+    A rope made of springs must be very stiff to look inextensible. But (as Chapter 7
+    warned) a stiff spring reacts violently: within one timestep it can overshoot so
+    hard that the next step is worse, and the rope shakes itself to infinity. You can
+    fight this with a tiny timestep, but that’s slow. There’s a better way.
+  </div>
+
+  <h2>Verlet integration: motion without a velocity variable</h2>
+  <p>The position-based approach starts by changing how we integrate. <strong>Verlet
+  integration</strong> doesn’t store a velocity at all. Instead it remembers where the
+  particle was <em>last</em> step, and reads the velocity from the gap between then and
+  now:</p>
+  <div class="eq">
+    <math display="block"><mrow>
+      <msub><mi>x</mi><mtext>next</mtext></msub><mo>=</mo><mi>x</mi><mo>+</mo>
+      <mo>(</mo><mi>x</mi><mo>−</mo><msub><mi>x</mi><mtext>prev</mtext></msub><mo>)</mo>
+      <mo>+</mo><mi>a</mi><mo>·</mo><msup><mi>Δt</mi><mn>2</mn></msup>
+    </mrow></math>
+  </div>
+  <div class="callout intuition">
+    <span class="label">Intuition</span>
+    The term <math><mo>(</mo><mi>x</mi><mo>−</mo><msub><mi>x</mi><mtext>prev</mtext></msub><mo>)</mo></math>
+    is “how far it moved last step” — that <em>is</em> its velocity (times
+    <math><mi>Δt</mi></math>), so the particle keeps coasting the same way (inertia),
+    then acceleration bends the path. The magic is what happens when we then
+    <em>directly edit</em> a particle’s position: because velocity is implied by the
+    position history, moving a particle to fix a constraint <strong>automatically</strong>
+    updates its velocity for free. That’s what makes constraints and Verlet a perfect
+    match.
+  </div>
+
+  <h2>A distance constraint: just move them back</h2>
+  <p>A rope segment says “these two beads must be exactly <math><mi>L</mi></math> apart.”
+  After integrating freely, they usually aren’t — so we compute how far off they are and
+  slide them along the line between them until they are. The move is split between the
+  two beads in proportion to their inverse mass, so a light bead moves a lot and a heavy
+  (or pinned, <math><mtext>invMass</mtext><mo>=</mo><mn>0</mn></math>) one barely moves:</p>
+  <pre><code class="cpp">Vec3 delta = pb.position - pa.position;      // from a to b
+const Real dist = length(delta);
+const Real diff = (dist - restLength) / dist;    // fractional error
+const Vec3  correction = delta * (stiffness * diff / (pa.invMass + pb.invMass));
+pa.position += correction * pa.invMass;      // each moves in proportion to 1/mass
+pb.position -= correction * pb.invMass;</code></pre>
+
+  <h2>Why we iterate</h2>
+  <p>Here’s the catch: fixing bead 2–3 can pull bead 2 away from where bead 1–2 wanted
+  it. Satisfying one constraint can break its neighbour. The fix is delightfully simple:
+  do it <strong>again</strong>. Sweep the whole rope several times per step and the
+  positions <em>relax</em> toward satisfying everything at once. More iterations ⇒ a
+  stiffer, less stretchy rope.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 640 170" role="img" aria-label="Relaxation: repeated passes converge the rope">
+      <text x="20" y="30" font-size="12" fill="var(--d-muted)">start: gaps wrong</text>
+      <g stroke="var(--d-grid)" stroke-width="2"><line x1="30" y1="45" x2="90" y2="55"/><line x1="90" y1="55" x2="180" y2="42"/><line x1="180" y1="42" x2="250" y2="70"/></g>
+      <g fill="var(--d-c)"><circle cx="30" cy="45" r="5"/><circle cx="90" cy="55" r="5"/><circle cx="180" cy="42" r="5"/><circle cx="250" cy="70" r="5"/></g>
+
+      <text x="20" y="105" font-size="12" fill="var(--d-muted)">after a few passes: even</text>
+      <g stroke="var(--d-a)" stroke-width="2"><line x1="30" y1="120" x2="95" y2="128"/><line x1="95" y1="128" x2="160" y2="135"/><line x1="160" y1="135" x2="225" y2="142"/></g>
+      <g fill="var(--d-a)"><circle cx="30" cy="120" r="5"/><circle cx="95" cy="128" r="5"/><circle cx="160" cy="135" r="5"/><circle cx="225" cy="142" r="5"/></g>
+      <text x="330" y="90" font-size="13" fill="var(--d-stroke)">each pass nudges every</text>
+      <text x="330" y="110" font-size="13" fill="var(--d-stroke)">gap toward its rest length;</text>
+      <text x="330" y="130" font-size="13" fill="var(--d-stroke)">they converge together.</text>
+    </svg>
+    <figcaption>Relaxation: repeatedly satisfying each link makes the whole chain settle
+    to consistent segment lengths. This is Jakobsen’s method.</figcaption>
+  </figure>
+
+  <p>The per-step loop is just those two ideas back to back:</p>
+  <pre><code class="cpp">for (Particle&amp; p : particles) p.integrateVerlet(gravity, dt);  // 1. move freely
+satisfyConstraints(constraints, particles, iterations);        // 2. pull back N times</code></pre>
+
+  <div class="callout tip">
+    <span class="label">Pinning is free</span>
+    A rope has to hang from something. We pin a bead by giving it
+    <code>invMass = 0</code>: Verlet skips it (it never moves) and the constraint solver
+    puts <em>all</em> of a link’s correction onto the other, movable bead. No special
+    cases — the same inverse-mass math from Chapter 6 does the work.
+  </div>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch08_ropes          # 1 rope · 2 necklace · 3 rope + heavy weight
+                                #  [ and ] change the iteration count live</code></pre>
+  <p>Scene <kbd>2</kbd> pins both ends and lets the rope sag into the graceful curve of
+  a hanging chain (a catenary). Scene <kbd>3</kbd> hangs a heavy bead on the end and it
+  swings like a pendulum, the light rope trailing behind.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>Press <kbd>[</kbd> repeatedly to drop the iteration count toward 1. The rope
+      turns visibly stretchy and rubbery. Press <kbd>]</kbd> to crank it back up and it
+      stiffens toward inextensible. You’re watching convergence happen.</li>
+    <li>Compare with Chapter 7’s spring chain (scene 3 there). Same swinging motion, but
+      this rope holds its length no matter how hard it’s yanked — the whole point.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>Stiff springs explode; <strong>position constraints</strong> don’t stretch in the
+      first place.</li>
+    <li><strong>Verlet</strong> infers velocity from position history, so editing a
+      position updates its velocity automatically.</li>
+    <li>A <strong>distance constraint</strong> just slides two particles to the right
+      separation, split by inverse mass.</li>
+    <li><strong>Iterate</strong> the whole constraint list to make everything agree; more
+      passes ⇒ stiffer.</li>
+  </ul>
+</article>
+</body>
+</html>
