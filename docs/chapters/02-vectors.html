@@ -31,7 +31,22 @@
   </ul>
   <p>Subtraction is the workhorse: <math><mi>b</mi><mo>−</mo><mi>a</mi></math> is the
   arrow that points <em>from a to b</em>. You’ll write that line constantly — “the
-  direction from this body to that one” is <code>normalize(b - a)</code>.</p>
+  direction from this body to that one” is <code>normalize(b - a)</code>. (To
+  <strong>normalize</strong> a vector means to keep its direction but shrink or
+  grow it to length&nbsp;1 — a pure “which way”, with the “how far” removed. We’ll
+  define it properly at the end of the chapter.)</p>
+
+  <div class="callout tip">
+    <span class="label">A note on the little symbols</span>
+    <p>Throughout, <math><mo>|</mo><mi>a</mi><mo>|</mo></math> means the
+    <strong>length</strong> (or “magnitude”) of the arrow <math><mi>a</mi></math> —
+    a single positive number. The Greek letter <math><mi>θ</mi></math> (“theta”) is
+    just a name for an angle, here the angle <em>between</em> two arrows.
+    <math><mi>cos</mi></math> and <math><mi>sin</mi></math> are the usual
+    trigonometry functions; the only fact you need is that
+    <math><mi>cos</mi></math> of an angle runs from 1 (arrows pointing the same
+    way) through 0 (a right angle) to −1 (pointing opposite).</p>
+  </div>
 
   <h2>Adding and scaling</h2>
   <figure class="diagram">

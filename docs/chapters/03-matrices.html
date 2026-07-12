@@ -21,6 +21,20 @@
   3D world, and why the <em>order</em> of multiplication matters. Code lives in
   <code>common/math/mat4.hpp</code>; the demo is <code>chapters/03-matrices/main.cpp</code>.</p>
 
+  <div class="callout tip">
+    <span class="label">First: what <em>is</em> a matrix?</span>
+    <p>A <strong>matrix</strong> is just a grid of numbers — for us, a 4×4 grid (16
+    numbers). On its own it’s inert; its meaning comes entirely from one operation:
+    <em>multiplying</em> it by a vector transforms that vector. So when we say “a
+    matrix moves a point,” we mean “multiply the point by the grid of numbers and
+    you get a moved point.”</p>
+    <p>Two words we’ll use a lot: a <strong>column vector</strong> is a vector
+    written as a vertical stack of its numbers (that’s the shape matrix
+    multiplication expects). A <strong>linear combination</strong> (or “blend”) of
+    some vectors just means scaling each one by a number and adding the results —
+    like mixing paints in different amounts. Nothing more exotic than that.</p>
+  </div>
+
   <h2>A transform is “new coordinates for a point”</h2>
   <p>Feed a point in, get a moved point out. The matrix stores the recipe. Multiplying
   a matrix by a (column) vector produces the transformed vector:</p>
@@ -68,6 +82,24 @@
         <mo>[</mo><mtable><mtr><mtd><mi>x</mi><mo>+</mo><msub><mi>t</mi><mi>x</mi></msub></mtd></mtr><mtr><mtd><mi>y</mi><mo>+</mo><msub><mi>t</mi><mi>y</mi></msub></mtd></mtr><mtr><mtd><mi>z</mi><mo>+</mo><msub><mi>t</mi><mi>z</mi></msub></mtd></mtr><mtr><mtd><mn>1</mn></mtd></mtr></mtable><mo>]</mo>
       </mrow>
     </math>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">Let’s do one by hand</span>
+    <p>Take the point <math><mo>(</mo><mn>2</mn><mo>,</mo><mn>5</mn><mo>,</mo><mn>0</mn><mo>)</mo></math>
+    and a translation of <math><mo>(</mo><mn>10</mn><mo>,</mo><mn>0</mn><mo>,</mo><mn>0</mn><mo>)</mo></math>
+    (“move 10 to the right”). We write the point as
+    <math><mo>(</mo><mn>2</mn><mo>,</mo><mn>5</mn><mo>,</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo>)</mo></math>
+    — note the <math><mn>1</mn></math> in the <math><mi>w</mi></math> slot. To get the
+    new <math><mi>x</mi></math>, we take the top row of the matrix,
+    <math><mo>(</mo><mn>1</mn><mo>,</mo><mn>0</mn><mo>,</mo><mn>0</mn><mo>,</mo><mn>10</mn><mo>)</mo></math>,
+    multiply it against the point piece-by-piece and add:
+    <math><mn>1</mn><mo>·</mo><mn>2</mn><mo>+</mo><mn>0</mn><mo>·</mo><mn>5</mn><mo>+</mo><mn>0</mn><mo>·</mo><mn>0</mn><mo>+</mo><mn>10</mn><mo>·</mo><mn>1</mn><mo>=</mo><mn>12</mn></math>.
+    The other rows leave <math><mi>y</mi></math> and <math><mi>z</mi></math> alone, so
+    the result is <math><mo>(</mo><mn>12</mn><mo>,</mo><mn>5</mn><mo>,</mo><mn>0</mn><mo>)</mo></math>
+    — moved 10 to the right, exactly as promised. That “multiply a row against the
+    point and add” step is <em>all</em> matrix–vector multiplication ever does; a
+    4×4 matrix just does it four times, once per output number.</p>
   </div>
 
   <h2>Rotation, in one picture</h2>

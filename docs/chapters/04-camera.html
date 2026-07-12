@@ -53,9 +53,19 @@
   <p>Our <code>lookAt</code> builds three axes — right, up, and forward — from the eye
   position and target, and packs them into a matrix. The demo’s
   <code>OrbitCamera</code> keeps things friendly: it stores a target, a distance, and
-  two angles (yaw, pitch), and reconstructs the eye position with spherical-to-
-  Cartesian trig. Dragging the mouse changes the angles; the wheel changes the
-  distance.</p>
+  two angles (<strong>yaw</strong> = how far it has swung left/right around the
+  target, <strong>pitch</strong> = how far up or down it is tilted), and reconstructs
+  the eye position from them.</p>
+  <div class="callout tip">
+    <span class="label">“Spherical coordinates”, in plain terms</span>
+    <p>Describing the camera by two angles and a distance is exactly how you’d point
+    at a star: an azimuth (which compass direction), an elevation (how high above the
+    horizon), and how far away. That’s a <strong>spherical coordinate</strong>. The
+    <code>position()</code> code below just converts those three friendly numbers back
+    into ordinary <math><mo>(</mo><mi>x</mi><mo>,</mo><mi>y</mi><mo>,</mo><mi>z</mi><mo>)</mo></math>
+    coordinates using sine and cosine — that conversion is all “spherical-to-Cartesian”
+    means. Dragging the mouse changes the angles; the wheel changes the distance.</p>
+  </div>
   <pre><code class="cpp">Vec3 position() const {                 // spherical → Cartesian
     const Real cp = std::cos(pitch), sp = std::sin(pitch);
     const Real cy = std::cos(yaw),   sy = std::sin(yaw);
@@ -134,11 +144,22 @@ if (!wireframe_ &amp;&amp; dot(viewNormal, centroid) &gt;= 0) continue;</code></
   </div>
 
   <h2>Flat shading, in one line of light</h2>
-  <p>To give shapes form we tint each face by how squarely it faces a light — a single
-  <em>Lambert</em> term, <math><mi>max</mi><mo>(</mo><mn>0</mn><mo>,</mo><mi>n</mi><mo>·</mo><mi>ℓ</mi><mo>)</mo></math>,
-  where <math><mi>n</mi></math> is the face normal (a cross product of two edges) and
-  <math><mi>ℓ</mi></math> points toward the light. An ambient floor keeps shadowed
-  faces from going pure black.</p>
+  <p>To give shapes form we tint each face by how squarely it faces a light. A
+  face pointing straight at the light is fully bright; one turned edge-on gets
+  nothing. “How squarely does it face the light?” is a question the dot product
+  from Chapter 2 answers, so the whole shading model is one line:</p>
+  <div class="eq">
+    <math display="block"><mrow><mtext>brightness</mtext><mo>=</mo><mi>max</mi><mo>(</mo><mn>0</mn><mo>,</mo><mspace width="3px"/><mi>n</mi><mo>·</mo><mi>ℓ</mi><mo>)</mo></mrow></math>
+  </div>
+  <p>Here <math><mi>n</mi></math> is the face’s <strong>normal</strong> — the
+  arrow sticking straight out of the surface, which we get as the cross product of
+  two of the triangle’s edges — and <math><mi>ℓ</mi></math> is the direction toward
+  the light. Their dot product is 1 when the face aims right at the light and 0 when
+  it faces sideways; the <math><mi>max</mi><mo>(</mo><mn>0</mn><mo>,</mo><mo>…</mo><mo>)</mo></math>
+  clamps away negatives (a face pointing away from the light just gets no light,
+  not negative light). This is called a <strong>Lambert</strong> term, after the
+  simplest physical model of a matte surface. We add a small <em>ambient</em> floor
+  so faces in shadow are dim rather than pure black.</p>
 
   <h2>Run it</h2>
   <pre><code class="cpp">./build/bin/ch04_camera       # drag to orbit, wheel to zoom, [ ] change FOV, 1-3 scenes</code></pre>

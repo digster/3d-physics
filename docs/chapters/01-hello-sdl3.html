@@ -15,6 +15,19 @@
   interactive program is built on: open a window, and repeatedly handle input,
   advance the world, and draw. We’ll make a ball bounce to prove it works.</p>
 
+  <div class="callout tip">
+    <span class="label">New here? A few words first</span>
+    <p><strong>SDL3</strong> (Simple DirectMedia Layer) is a small library that
+    hands us the boring-but-essential things: a <em>window</em> to draw in, a
+    <em>renderer</em> (the object that actually puts shapes on screen), and a
+    stream of <em>events</em> (key presses, mouse moves, the close button). SDL
+    does <em>not</em> know anything about physics or 3D — we write all of that
+    ourselves. Think of SDL as the blank canvas and paintbrush; everything painted
+    on it is us.</p>
+    <p>You don’t need any physics or graphics background to follow along — just
+    comfort reading C++. We’ll (re)introduce every idea as it comes up.</p>
+  </div>
+
   <h2>Goal</h2>
   <p>By the end you will understand the <strong>game loop</strong>, the idea of
   <strong>delta time</strong>, and the three-line “physics” that already lives in a

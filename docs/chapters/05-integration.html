@@ -66,6 +66,17 @@
     matters far more for games and interactive physics. This is what almost every game
     engine uses, and what we’ll use throughout the course.
   </div>
+  <div class="callout tip">
+    <span class="label">Two words you’ll keep seeing</span>
+    <p><strong>Energy</strong>, here, is a single number that measures “how much
+    total motion + stored spring tension” the system has. Real physics keeps it
+    constant unless something adds or removes it; so if our <em>simulation’s</em>
+    energy creeps upward, that’s a pure artifact of the integrator — free energy from
+    nowhere, which is what makes things fly apart.</p>
+    <p><strong>Symplectic</strong> is just the technical name for “a stepping method
+    that keeps this energy bounded instead of letting it drift.” When you see
+    “symplectic,” read it as “energy-behaved, and therefore stable.”</p>
+  </div>
 
   <h2>See it yourself</h2>
   <p>Below, the same orbit (a central spring, <math><mi>a</mi><mo>=</mo><mo>−</mo><mi>k</mi><mi>x</mi></math>)
@@ -105,8 +116,10 @@
     </math>
   </div>
   <p>It’s roughly four times the work per step and much more accurate, but — crucially —
-  it is <em>not</em> automatically stable for stiff systems, and it doesn’t conserve
-  energy exactly either. For real-time rigid-body physics, cheap-and-stable
+  it is <em>not</em> automatically stable for <em>stiff</em> systems (a “stiff” system
+  is one with very strong, fast-reacting forces — a rigid stack of heavy boxes, a
+  tight spring — the exact situations a physics engine is full of), and it doesn’t
+  conserve energy exactly either. For real-time rigid-body physics, cheap-and-stable
   (semi-implicit Euler) usually beats accurate-and-expensive (RK4). Knowing both, and
   why we pick the humble one, is the point.</p>
 
