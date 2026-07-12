@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 5 · Numerical Integration — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="05">
+<article>
+  <span class="eyebrow">Part I · Foundations · Chapter 5</span>
+  <h1>Numerical Integration</h1>
+  <p class="lead">Every simulation moves forward in time by small steps. <em>How</em> you
+  take that step decides whether your world is stable or slowly explodes. This is the
+  most important chapter in Part I — get integration right and the rest of the engine
+  has solid ground to stand on.</p>
+
+  <h2>Goal</h2>
+  <p>Understand what it means to “integrate” motion, why the naive method leaks energy,
+  and why one tiny reordering fixes it. Then meet RK4, and learn the fixed-timestep
+  loop that makes the whole engine deterministic. Code:
+  <code>chapters/05-integration/main.cpp</code>.</p>
+
+  <h2>What we’re actually doing</h2>
+  <p>Physics gives us acceleration (from forces: <math><mi>a</mi><mo>=</mo><mi>F</mi><mo>/</mo><mi>m</mi></math>).
+  We want position. Acceleration changes velocity; velocity changes position. But we
+  can’t solve for all time at once — we take a small step <math><mi>Δt</mi></math> and
+  repeat. That stepping is <strong>numerical integration</strong>, and there’s more
+  than one way to do it.</p>
+
+  <h2>Explicit Euler — simple, and subtly wrong</h2>
+  <p>The obvious approach: use the current velocity to move, then update the velocity.</p>
+  <div class="eq">
+    <math display="block">
+      <mtable columnalign="left">
+        <mtr><mtd><msup><mi>x</mi><mo>′</mo></msup><mo>=</mo><mi>x</mi><mo>+</mo><mi>v</mi><mo>&#8202;</mo><mi>Δt</mi></mtd></mtr>
+        <mtr><mtd><msup><mi>v</mi><mo>′</mo></msup><mo>=</mo><mi>v</mi><mo>+</mo><mi>a</mi><mo>&#8202;</mo><mi>Δt</mi></mtd></mtr>
+      </mtable>
+    </math>
+  </div>
+  <div class="callout warn">
+    <span class="label">The problem</span>
+    Explicit Euler uses the <em>old</em> velocity for the whole step, always a little
+    behind where the object really is. On anything that oscillates — a spring, an
+    orbit, a bouncing stack — that lag consistently <strong>adds energy</strong>. The
+    orbit spirals outward; the spring shakes itself apart. It doesn’t just make errors,
+    it makes errors that always push the same way.
+  </div>
+
+  <h2>Semi-implicit (symplectic) Euler — the one-line fix</h2>
+  <p>Update the velocity <em>first</em>, then move with the <em>new</em> velocity:</p>
+  <div class="eq">
+    <math display="block">
+      <mtable columnalign="left">
+        <mtr><mtd><msup><mi>v</mi><mo>′</mo></msup><mo>=</mo><mi>v</mi><mo>+</mo><mi>a</mi><mo>&#8202;</mo><mi>Δt</mi></mtd></mtr>
+        <mtr><mtd><msup><mi>x</mi><mo>′</mo></msup><mo>=</mo><mi>x</mi><mo>+</mo><msup><mi>v</mi><mo>′</mo></msup><mo>&#8202;</mo><mi>Δt</mi></mtd></mtr>
+      </mtable>
+    </math>
+  </div>
+  <div class="callout intuition">
+    <span class="label">Intuition</span>
+    That’s the <em>only</em> change — two lines swapped. But now the errors alternate
+    sign instead of accumulating, so total energy wobbles within a tight band instead
+    of drifting. It’s not perfectly accurate, but it’s <strong>stable</strong>, which
+    matters far more for games and interactive physics. This is what almost every game
+    engine uses, and what we’ll use throughout the course.
+  </div>
+
+  <h2>See it yourself</h2>
+  <p>Below, the same orbit (a central spring, <math><mi>a</mi><mo>=</mo><mo>−</mo><mi>k</mi><mi>x</mi></math>)
+  is integrated three ways at once. Drag the timestep up and watch coral (explicit
+  Euler) spiral outward and its energy climb, while teal (semi-implicit) holds its
+  ring and lime (RK4) is nearly perfect. Push <math><mi>Δt</mi></math> high enough and
+  coral blows up entirely.</p>
+
+  <div class="widget js-integrator-widget">
+    <canvas></canvas>
+    <div class="legend">
+      <span><i style="background:#f0645f"></i>Explicit Euler</span>
+      <span><i style="background:#29c8be"></i>Semi-implicit Euler</span>
+      <span><i style="background:#96d25a"></i>RK4</span>
+    </div>
+    <div class="controls">
+      <label>time step Δt
+        <input class="dt" type="range" min="0.005" max="0.09" step="0.001" value="0.02">
+        <span class="dt-val">0.020</span>
+      </label>
+      <button class="reset">reset orbit</button>
+      <span class="energy" style="font-family:var(--mono);font-size:12.5px;color:var(--muted)"></span>
+    </div>
+  </div>
+
+  <h2>RK4 — spend four samples for accuracy</h2>
+  <p>When you need accuracy (say, a stable orbit over long times), Runge–Kutta 4 takes
+  four “trial” slope measurements across the step and averages them with clever
+  weights:</p>
+  <div class="eq">
+    <math display="block">
+      <mrow>
+        <msup><mi>y</mi><mo>′</mo></msup><mo>=</mo><mi>y</mi><mo>+</mo>
+        <mfrac><mi>Δt</mi><mn>6</mn></mfrac>
+        <mo>(</mo><msub><mi>k</mi><mn>1</mn></msub><mo>+</mo><mn>2</mn><msub><mi>k</mi><mn>2</mn></msub><mo>+</mo><mn>2</mn><msub><mi>k</mi><mn>3</mn></msub><mo>+</mo><msub><mi>k</mi><mn>4</mn></msub><mo>)</mo>
+      </mrow>
+    </math>
+  </div>
+  <p>It’s roughly four times the work per step and much more accurate, but — crucially —
+  it is <em>not</em> automatically stable for stiff systems, and it doesn’t conserve
+  energy exactly either. For real-time rigid-body physics, cheap-and-stable
+  (semi-implicit Euler) usually beats accurate-and-expensive (RK4). Knowing both, and
+  why we pick the humble one, is the point.</p>
+
+  <div class="callout tip">
+    <span class="label">Also worth knowing: Verlet</span>
+    Position Verlet stores two past positions instead of a velocity and infers motion
+    from their difference. It’s symplectic like semi-implicit Euler and makes
+    <em>position</em> constraints trivial — which is exactly why Part II’s ropes and
+    cloth will reach for it.
+  </div>
+
+  <h2>The code</h2>
+  <p>Here are the two Eulers side by side. The entire difference — stable vs.
+  ever-growing — is the order of two lines:</p>
+  <pre><code class="cpp">State stepExplicitEuler(State s, const AccelFn&amp; a, Real dt) {
+    const Vec3 acc = a(s.pos, s.vel);
+    s.pos += s.vel * dt;   // position uses the OLD velocity...
+    s.vel += acc * dt;     // ...then velocity updates. This ordering leaks energy.
+    return s;
+}
+
+State stepSemiImplicitEuler(State s, const AccelFn&amp; a, Real dt) {
+    const Vec3 acc = a(s.pos, s.vel);
+    s.vel += acc * dt;     // update velocity FIRST...
+    s.pos += s.vel * dt;   // ...then move with the NEW velocity. Symplectic.
+    return s;
+}</code></pre>
+
+  <h2>The other half: a fixed timestep</h2>
+  <p>Chapter 1 moved the ball by the <em>frame’s</em> delta time. That makes the physics
+  depend on frame rate — a slow frame takes one giant, unstable step. The fix is to
+  integrate at a <strong>fixed</strong> <math><mi>Δt</mi></math> (we use 1/120&nbsp;s),
+  accumulating real time and spending it in fixed chunks:</p>
+  <pre><code class="cpp">accumulator += frameTime;          // real time elapsed this frame (clamped)
+while (accumulator &gt;= dt) {
+    fixedUpdate(dt);               // one deterministic step, always the same size
+    accumulator -= dt;
+}
+Real alpha = accumulator / dt;     // leftover fraction → interpolate when drawing</code></pre>
+  <div class="callout math">
+    <span class="label">Why fixed matters here specifically</span>
+    Integrator stability, restitution, and stacking all depend on a constant step. A
+    fixed step also makes the sim <strong>deterministic</strong> — run it twice, get
+    the same result — which is what makes the <code>--selftest</code> harness and
+    reproducible bug reports possible. This is Glenn Fiedler’s “Fix Your Timestep,”
+    and it’s in <code>common/app.cpp</code>.
+  </div>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch05_integration    # 1 orbit  ·  2 projectile vs exact  ·  3 orbit (big step)</code></pre>
+  <p>Scene <kbd>1</kbd> is the orbit above, in 3D, with live energy readouts. Scene
+  <kbd>2</kbd> races the integrators against the exact projectile parabola (white).
+  Scene <kbd>3</kbd> cranks the step size so explicit Euler blows up in seconds —
+  the same lesson as the widget’s slider, in the real engine.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>In scene <kbd>1</kbd>, watch the HUD: explicit Euler’s energy <math><mi>E</mi></math>
+      only ever climbs, while the other two hold steady. That upward number <em>is</em>
+      the spiral.</li>
+    <li>In the widget, set <math><mi>Δt</mi></math> to its maximum and hit reset —
+      coral diverges almost immediately while teal and lime survive. Stability is a
+      property of the method <em>and</em> the step size together.</li>
+    <li>In scene <kbd>2</kbd>, note how well all three track constant-acceleration
+      motion. Integrators only diverge on velocity-dependent forces (springs, orbits) —
+      which is most of interesting physics.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>Integration steps a simulation forward; the method matters as much as the math.</li>
+    <li><strong>Explicit Euler leaks energy</strong>; <strong>semi-implicit Euler</strong>
+      fixes it by updating velocity before position.</li>
+    <li>RK4 is accurate but not automatically stable; real-time physics prefers stable.</li>
+    <li>Integrate at a <strong>fixed timestep</strong> for stability and determinism.</li>
+  </ul>
+
+  <div class="callout intuition">
+    <span class="label">End of Part I</span>
+    You now have the whole foundation: an SDL3 loop, the vector/matrix/quaternion math,
+    a working software renderer, and stable integration. Part II puts them to work —
+    real forces, springs, ropes, and cloth — as we start building the physics engine
+    itself.
+  </div>
+</article>
+</body>
+</html>

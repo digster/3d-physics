@@ -1,0 +1,269 @@
+/* ===========================================================================
+   style.css — the whole look of the tutorial, no build step, no dependencies.
+   Theme-aware: follows the OS light/dark setting by default, and the header
+   toggle (which sets data-theme on <html>) overrides it either way.
+   =========================================================================== */
+
+/* --- Design tokens --------------------------------------------------------
+   Dark is the default (the demos are dark); light is provided as an override.
+   The .theme rules below re-declare these variables for the opposite theme. */
+:root {
+  --bg:        #14161d;
+  --surface:   #1b1e27;
+  --surface-2: #222733;
+  --text:      #e7e9f0;
+  --muted:     #9aa3b5;
+  --border:    #2c3140;
+  --accent:    #29c8be;   /* teal, matching the demos */
+  --accent-2:  #5aa0eb;   /* blue  */
+  --warn:      #f0a84a;
+  --code-bg:   #0f1117;
+  --code-text: #d6dae4;
+  --kw:        #7cc7ff;   /* syntax: keyword   */
+  --num:       #f0a84a;   /* syntax: number    */
+  --str:       #8fd694;   /* syntax: string    */
+  --cmt:       #6b7385;   /* syntax: comment   */
+  --typ:       #55d6cc;   /* syntax: type      */
+  --pre:       #c39bf0;   /* syntax: preproc   */
+  --maxw: 820px;
+  --sidebar: 264px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* Light theme, applied either by OS preference or by an explicit toggle. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:        #f7f8fa;
+    --surface:   #ffffff;
+    --surface-2: #eef1f6;
+    --text:      #1c2230;
+    --muted:     #5b6474;
+    --border:    #dde2ea;
+    --accent:    #0e9c93;
+    --accent-2:  #2f74d0;
+    --warn:      #b9781a;
+    --code-bg:   #f4f6fa;
+    --code-text: #24303f;
+    --kw:        #1f66c4;
+    --num:       #b9781a;
+    --str:       #2f8f4a;
+    --cmt:       #8a93a6;
+    --typ:       #0e9c93;
+    --pre:       #7b46c9;
+  }
+}
+:root[data-theme="light"] {
+  --bg:        #f7f8fa;
+  --surface:   #ffffff;
+  --surface-2: #eef1f6;
+  --text:      #1c2230;
+  --muted:     #5b6474;
+  --border:    #dde2ea;
+  --accent:    #0e9c93;
+  --accent-2:  #2f74d0;
+  --warn:      #b9781a;
+  --code-bg:   #f4f6fa;
+  --code-text: #24303f;
+  --kw:        #1f66c4;
+  --num:       #b9781a;
+  --str:       #2f8f4a;
+  --cmt:       #8a93a6;
+  --typ:       #0e9c93;
+  --pre:       #7b46c9;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Top bar --------------------------------------------------------------- */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 16px;
+  height: 56px; padding: 0 20px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.topbar .brand {
+  font-weight: 700; letter-spacing: -0.01em; color: var(--text);
+  text-decoration: none; display: flex; align-items: center; gap: 9px;
+}
+.topbar .brand .dot {
+  width: 12px; height: 12px; border-radius: 3px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.topbar .spacer { flex: 1; }
+.topbar a.plain { color: var(--muted); text-decoration: none; font-size: 14px; }
+.topbar a.plain:hover { color: var(--text); }
+.theme-toggle {
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+  width: 38px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 15px;
+}
+.theme-toggle:hover { border-color: var(--accent); }
+
+/* --- Layout: sidebar + content -------------------------------------------- */
+.layout { display: flex; align-items: flex-start; }
+.sidebar {
+  position: sticky; top: 56px;
+  width: var(--sidebar); flex: 0 0 var(--sidebar);
+  height: calc(100vh - 56px); overflow-y: auto;
+  padding: 20px 12px 60px 20px;
+  border-right: 1px solid var(--border);
+  font-size: 14.5px;
+}
+.sidebar h4 {
+  margin: 18px 0 6px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--muted); font-weight: 700;
+}
+.sidebar a {
+  display: block; padding: 5px 10px; margin: 1px 0; border-radius: 7px;
+  color: var(--muted); text-decoration: none; line-height: 1.35;
+}
+.sidebar a:hover { background: var(--surface-2); color: var(--text); }
+.sidebar a.current { background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--text); font-weight: 600; }
+.sidebar a .ch-num { color: var(--accent); font-variant-numeric: tabular-nums;
+  margin-right: 7px; font-weight: 600; }
+
+.content { flex: 1; min-width: 0; display: flex; justify-content: center; padding: 0 28px; }
+article { width: 100%; max-width: var(--maxw); padding: 34px 0 90px; }
+
+/* --- Typography ------------------------------------------------------------ */
+article h1 { font-size: 2.05rem; line-height: 1.15; letter-spacing: -0.02em; margin: 6px 0 6px; }
+article h2 { font-size: 1.42rem; margin: 2.2em 0 0.5em; letter-spacing: -0.01em;
+  padding-top: 0.3em; border-top: 1px solid var(--border); }
+article h3 { font-size: 1.12rem; margin: 1.6em 0 0.4em; }
+article p, article li { color: var(--text); }
+article a { color: var(--accent-2); text-decoration: none; }
+article a:hover { text-decoration: underline; }
+.eyebrow { color: var(--accent); font-weight: 700; font-size: 13px;
+  text-transform: uppercase; letter-spacing: 0.08em; }
+.lead { font-size: 1.12rem; color: var(--muted); }
+article strong { color: var(--text); }
+article code { font-family: var(--mono); font-size: 0.88em;
+  background: var(--surface-2); padding: 1px 6px; border-radius: 5px; }
+kbd {
+  font-family: var(--mono); font-size: 0.8em; background: var(--surface-2);
+  border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px;
+  padding: 1px 6px; color: var(--text);
+}
+
+/* --- Callouts -------------------------------------------------------------- */
+.callout {
+  margin: 1.3em 0; padding: 14px 18px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface);
+  border-left: 4px solid var(--accent);
+}
+.callout .label { font-weight: 700; font-size: 12px; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--accent); margin-bottom: 2px; display: block; }
+.callout.intuition { border-left-color: var(--accent); }
+.callout.intuition .label { color: var(--accent); }
+.callout.math { border-left-color: var(--accent-2); }
+.callout.math .label { color: var(--accent-2); }
+.callout.tip { border-left-color: var(--str); }
+.callout.tip .label { color: var(--str); }
+.callout.warn { border-left-color: var(--warn); }
+.callout.warn .label { color: var(--warn); }
+.callout > :last-child { margin-bottom: 0; }
+
+/* --- Code blocks ----------------------------------------------------------- */
+pre {
+  background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 15px 16px; overflow-x: auto; font-family: var(--mono);
+  font-size: 13.5px; line-height: 1.55; color: var(--code-text);
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+.code-cap { font-size: 12.5px; color: var(--muted); margin: 1.3em 0 -0.6em;
+  font-family: var(--mono); }
+.tok-kw  { color: var(--kw); }
+.tok-num { color: var(--num); }
+.tok-str { color: var(--str); }
+.tok-cmt { color: var(--cmt); font-style: italic; }
+.tok-typ { color: var(--typ); }
+.tok-pre { color: var(--pre); }
+
+/* --- Figures / SVG diagrams ------------------------------------------------ */
+figure { margin: 1.6em 0; text-align: center; }
+figure svg { max-width: 100%; height: auto;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
+/* Diagram theming hooks: SVGs reference these via currentColor / CSS vars. */
+.diagram { --d-stroke: var(--text); --d-muted: var(--muted); --d-grid: var(--border);
+  --d-accent: var(--accent); --d-accent2: var(--accent-2); --d-warn: var(--warn);
+  --d-a: #29c8be; --d-b: #f0a84a; --d-c: #f0645f; --d-d: #a578eb; --d-e: #96d25a; }
+
+/* --- Tables ---------------------------------------------------------------- */
+table { border-collapse: collapse; width: 100%; margin: 1.3em 0; font-size: 15px; }
+th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+th { background: var(--surface-2); }
+.table-scroll { overflow-x: auto; }
+
+/* --- MathML ---------------------------------------------------------------- */
+math { font-size: 1.06em; }
+.eq { margin: 1.1em 0; text-align: center; overflow-x: auto; }
+.eq math { font-size: 1.18em; }
+
+/* --- Prev / next nav ------------------------------------------------------- */
+.pager { display: flex; gap: 14px; margin-top: 40px; }
+.pager a {
+  flex: 1; padding: 14px 18px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface); text-decoration: none; color: var(--text);
+}
+.pager a:hover { border-color: var(--accent); }
+.pager .dir { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.pager .ttl { font-weight: 600; margin-top: 2px; }
+.pager a.next { text-align: right; }
+.pager a.disabled { opacity: 0.35; pointer-events: none; }
+
+/* --- Widgets (interactive canvas demos) ------------------------------------ */
+.widget { margin: 1.6em 0; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface); padding: 14px; }
+.widget canvas { width: 100%; display: block; border-radius: 8px; background: var(--code-bg); }
+.widget .controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center;
+  margin-top: 12px; font-size: 14px; }
+.widget .controls label { color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.widget .controls input[type=range] { accent-color: var(--accent); }
+.widget .controls button { background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+.widget .controls button:hover { border-color: var(--accent); }
+.widget .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; margin-top: 8px; color: var(--muted); }
+.widget .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* --- Home / hero ----------------------------------------------------------- */
+.hero { padding: 30px 0 6px; }
+.hero h1 { font-size: 2.6rem; line-height: 1.08; letter-spacing: -0.03em; margin: 10px 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin: 18px 0; }
+.card { border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
+  padding: 16px; text-decoration: none; color: var(--text); display: block; }
+.card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.card .part { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--accent); font-weight: 700; }
+.card .ttl { font-weight: 650; margin: 4px 0 4px; }
+.card .desc { font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+
+/* --- Mobile ---------------------------------------------------------------- */
+.menu-btn { display: none; background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); width: 38px; height: 32px; border-radius: 8px; cursor: pointer; }
+@media (max-width: 900px) {
+  .menu-btn { display: inline-block; }
+  .sidebar {
+    position: fixed; left: 0; top: 56px; z-index: 30;
+    background: var(--surface); transform: translateX(-105%);
+    transition: transform 0.2s ease; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .content { padding: 0 18px; }
+  body { font-size: 16px; }
+  .hero h1 { font-size: 2.05rem; }
+}

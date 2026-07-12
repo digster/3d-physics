@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>3D Physics From Scratch — a build-it-yourself tutorial</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="js/docs.js" defer></script>
+</head>
+<body data-home>
+<article>
+  <div class="hero">
+    <span class="eyebrow">SDL3 · C++ · No engine, no magic</span>
+    <h1>Learn 3D physics by building it from scratch.</h1>
+    <p class="lead">A chapter-by-chapter course that takes you from “what is a vector”
+    to a small, real rigid-body engine with collisions, friction, joints, and soft
+    bodies. Every idea comes as a runnable demo <em>and</em> a page like this that
+    explains the intuition, the math, and the code.</p>
+  </div>
+
+  <!-- The seven-part arc. Part I is where we are; later parts are greyed. -->
+  <figure class="diagram">
+    <svg viewBox="0 0 880 150" role="img" aria-label="Course roadmap across seven parts">
+      <line x1="60" y1="52" x2="820" y2="52" stroke="var(--d-grid)" stroke-width="2"/>
+      <!-- active -->
+      <g>
+        <circle cx="60" cy="52" r="15" fill="var(--d-accent)"/>
+        <text x="60" y="57" text-anchor="middle" font-size="13" font-weight="700" fill="#06231f">I</text>
+        <text x="60" y="92" text-anchor="middle" font-size="12" fill="var(--d-stroke)" font-weight="600">Foundations</text>
+        <text x="60" y="108" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">Ch 1–5</text>
+      </g>
+      <!-- upcoming -->
+      <g fill="var(--d-muted)">
+        <g><circle cx="187" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="187" y="56" text-anchor="middle" font-size="11">II</text><text x="187" y="92" text-anchor="middle" font-size="11">Particles</text></g>
+        <g><circle cx="314" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="314" y="56" text-anchor="middle" font-size="11">III</text><text x="314" y="92" text-anchor="middle" font-size="11">Rigid bodies</text></g>
+        <g><circle cx="441" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="441" y="56" text-anchor="middle" font-size="11">IV</text><text x="441" y="92" text-anchor="middle" font-size="11">Collision</text></g>
+        <g><circle cx="568" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="568" y="56" text-anchor="middle" font-size="11">V</text><text x="568" y="92" text-anchor="middle" font-size="11">Response</text></g>
+        <g><circle cx="695" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="695" y="56" text-anchor="middle" font-size="11">VI</text><text x="695" y="92" text-anchor="middle" font-size="11">Joints</text></g>
+        <g><circle cx="820" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="820" y="56" text-anchor="middle" font-size="11">VII</text><text x="820" y="92" text-anchor="middle" font-size="11">Soft bodies</text></g>
+      </g>
+    </svg>
+    <figcaption>The road ahead. This release covers <strong>Part I</strong>; later parts land part by part.</figcaption>
+  </figure>
+
+  <h2>Start here — Part I: Foundations</h2>
+  <p>These five chapters build the toolkit the rest of the course stands on: an SDL3
+  loop, the vector/matrix/quaternion math, a from-scratch software 3D renderer, and
+  the numerical integration that moves a simulation forward in time.</p>
+
+  <div class="cards">
+    <a class="card" href="chapters/01-hello-sdl3.html">
+      <div class="part">Chapter 1</div>
+      <div class="ttl">Hello, SDL3</div>
+      <div class="desc">A window, a game loop, and a bouncing ball. The skeleton every demo is built on, plus delta time.</div>
+    </a>
+    <a class="card" href="chapters/02-vectors.html">
+      <div class="part">Chapter 2</div>
+      <div class="ttl">Vectors</div>
+      <div class="desc">The dot and cross products, made visual. The two operations that unlock everything in 3D.</div>
+    </a>
+    <a class="card" href="chapters/03-matrices.html">
+      <div class="part">Chapter 3</div>
+      <div class="ttl">Matrices &amp; Transforms</div>
+      <div class="desc">Translate, rotate, scale — and how multiplying matrices chains those verbs into hierarchies.</div>
+    </a>
+    <a class="card" href="chapters/04-camera.html">
+      <div class="part">Chapter 4</div>
+      <div class="ttl">Camera &amp; Projection</div>
+      <div class="desc">How a 3D scene becomes a 2D image: the view matrix, the perspective lens, and our software rasteriser.</div>
+    </a>
+    <a class="card" href="chapters/05-integration.html">
+      <div class="part">Chapter 5</div>
+      <div class="ttl">Numerical Integration</div>
+      <div class="desc">Euler, symplectic Euler, and RK4 raced head-to-head — why the timestep is the soul of a stable sim.</div>
+    </a>
+  </div>
+
+  <h2>Getting the code running</h2>
+  <p>You need a C++20 compiler and CMake. SDL3 is optional — if it isn’t installed,
+  the build fetches and compiles it for you.</p>
+  <pre><code class="cpp"># macOS: brew install sdl3 cmake      (Linux: use your package manager)
+cmake -B build
+cmake --build build -j
+
+# run any chapter (binaries land in build/bin):
+./build/bin/ch01_hello_sdl3
+./build/bin/ch05_integration
+
+# run the unit tests:
+ctest --test-dir build --output-on-failure</code></pre>
+
+  <div class="callout tip">
+    <span class="label">Standard controls</span>
+    Every 3D demo shares them: <kbd>drag</kbd> orbit · <kbd>wheel</kbd> zoom ·
+    <kbd>Space</kbd> pause · <kbd>.</kbd> single-step · <kbd>R</kbd> reset ·
+    <kbd>1</kbd>–<kbd>9</kbd> scene variant · <kbd>W</kbd> wireframe · <kbd>H</kbd> HUD · <kbd>Esc</kbd> quit.
+  </div>
+
+  <h2>How the project fits together</h2>
+  <p>Three layers: each chapter’s tiny <code>main.cpp</code> sets up a scene and
+  leans on a shared framework (<code>common/</code> — the math, the renderer, the
+  loop) and, from Part II on, a from-scratch engine (<code>physics/</code>). The
+  reasoning behind the structure is in <code>ARCHITECTURE.md</code>.</p>
+
+  <div class="callout intuition">
+    <span class="label">The philosophy</span>
+    No Bullet, no Jolt, no PhysX — and no graphics engine either. We write the
+    integrators, the collision detection, the solver, and even the 3D renderer
+    ourselves, because the point is to understand <em>why</em> each one works.
+  </div>
+</article>
+</body>
+</html>

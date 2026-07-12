@@ -1,0 +1,280 @@
+/* ===========================================================================
+   docs.js — the shared chrome for every tutorial page. No dependencies.
+   Responsibilities:
+     * build the sidebar navigation + prev/next pager from one manifest,
+     * the light/dark theme toggle (remembered in localStorage),
+     * a tiny C++ syntax highlighter (so we ship no highlighting library),
+     * boot any interactive <canvas> widgets on the page.
+   =========================================================================== */
+(function () {
+  "use strict";
+
+  // --- The single source of truth for chapter order/titles ------------------
+  const CHAPTERS = [
+    { part: "Part I · Foundations", num: "01", slug: "01-hello-sdl3",   title: "Hello, SDL3" },
+    { part: "Part I · Foundations", num: "02", slug: "02-vectors",      title: "Vectors" },
+    { part: "Part I · Foundations", num: "03", slug: "03-matrices",     title: "Matrices & Transforms" },
+    { part: "Part I · Foundations", num: "04", slug: "04-camera",       title: "Camera & Projection" },
+    { part: "Part I · Foundations", num: "05", slug: "05-integration",  title: "Numerical Integration" },
+  ];
+
+  // Later parts, shown greyed-out on the roadmap so the arc is visible.
+  const UPCOMING = [
+    "Part II · Particles & Forces", "Part III · Rigid Bodies",
+    "Part IV · Collision Detection", "Part V · Collision Response",
+    "Part VI · Constraints & Joints", "Part VII · Beyond Rigid Bodies",
+  ];
+
+  const inChapters = location.pathname.indexOf("/chapters/") !== -1;
+  const toChapter = (slug) => (inChapters ? slug + ".html" : "chapters/" + slug + ".html");
+  const toHome = inChapters ? "../index.html" : "index.html";
+  const asset = (p) => (inChapters ? "../" + p : p);
+
+  // --- Theme -----------------------------------------------------------------
+  function applyStoredTheme() {
+    const t = localStorage.getItem("theme");
+    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  }
+  function toggleTheme() {
+    const cur = document.documentElement.dataset.theme;
+    // If unset, infer what we're currently showing from the OS preference.
+    const showingDark = cur ? cur === "dark"
+      : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const next = showingDark ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("theme", next);
+    document.dispatchEvent(new CustomEvent("themechange"));
+  }
+  applyStoredTheme();
+
+  // --- Build the top bar -----------------------------------------------------
+  function buildTopbar() {
+    const bar = document.createElement("header");
+    bar.className = "topbar";
+    bar.innerHTML =
+      '<button class="menu-btn" aria-label="Menu">☰</button>' +
+      '<a class="brand" href="' + toHome + '"><span class="dot"></span>3D Physics From Scratch</a>' +
+      '<span class="spacer"></span>' +
+      '<a class="plain" href="' + toHome + '">Contents</a>' +
+      '<button class="theme-toggle" aria-label="Toggle theme">◐</button>';
+    document.body.prepend(bar);
+    bar.querySelector(".theme-toggle").addEventListener("click", toggleTheme);
+    bar.querySelector(".menu-btn").addEventListener("click", () => {
+      const sb = document.querySelector(".sidebar");
+      if (sb) sb.classList.toggle("open");
+    });
+  }
+
+  // --- Build the sidebar -----------------------------------------------------
+  function buildSidebar(currentNum) {
+    const nav = document.createElement("nav");
+    nav.className = "sidebar";
+    let html = "";
+    let lastPart = "";
+    CHAPTERS.forEach((c) => {
+      if (c.part !== lastPart) { html += "<h4>" + c.part + "</h4>"; lastPart = c.part; }
+      const cls = c.num === currentNum ? "current" : "";
+      html += '<a class="' + cls + '" href="' + toChapter(c.slug) + '">' +
+              '<span class="ch-num">' + c.num + "</span>" + c.title + "</a>";
+    });
+    nav.innerHTML = html;
+    return nav;
+  }
+
+  // --- Build prev/next pager -------------------------------------------------
+  function buildPager(currentNum) {
+    const idx = CHAPTERS.findIndex((c) => c.num === currentNum);
+    if (idx < 0) return null;
+    const prev = CHAPTERS[idx - 1], next = CHAPTERS[idx + 1];
+    const pager = document.createElement("nav");
+    pager.className = "pager";
+    const prevHtml = prev
+      ? '<a class="prev" href="' + toChapter(prev.slug) + '"><div class="dir">← Previous</div><div class="ttl">' + prev.num + " · " + prev.title + "</div></a>"
+      : '<a class="prev disabled"><div class="dir">← Previous</div><div class="ttl">Start of course</div></a>';
+    const nextHtml = next
+      ? '<a class="next" href="' + toChapter(next.slug) + '"><div class="dir">Next →</div><div class="ttl">' + next.num + " · " + next.title + "</div></a>"
+      : '<a class="next disabled"><div class="dir">Next →</div><div class="ttl">More coming soon</div></a>';
+    pager.innerHTML = prevHtml + nextHtml;
+    return pager;
+  }
+
+  // --- C++ syntax highlighter ------------------------------------------------
+  const KW = new Set(("alignas alignof and auto bool break case catch char class const constexpr " +
+    "continue default delete do double else enum explicit extern false float for friend goto if " +
+    "inline int long mutable namespace new noexcept not nullptr operator or private protected public " +
+    "register return short signed sizeof static static_cast struct switch template this throw true try " +
+    "typedef typename union unsigned using virtual void volatile while override final").split(" "));
+  const TYPES = new Set(("Real Vec3 Vec4 Mat4 Quat Color Mesh State App Renderer3D OrbitCamera AccelFn " +
+    "SDL_Renderer SDL_Window SDL_Event size_t Uint8 Uint64 std string vector deque array function").split(" "));
+
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+  function highlightCpp(src) {
+    // Sticky-regex scanner: try each rule at the current position, in order.
+    const rules = [
+      ["cmt", /\/\/[^\n]*|\/\*[\s\S]*?\*\//y],
+      ["pre", /^[ \t]*#\w+/my],
+      ["str", /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/y],
+      ["num", /\b(?:0x[0-9a-fA-F]+|\d[\d.']*)[fFuUlL]*\b/y],
+      ["id",  /[A-Za-z_]\w*/y],
+      ["any", /\s+|[^\sA-Za-z_0-9]/y],
+    ];
+    let out = "", i = 0;
+    while (i < src.length) {
+      let matched = false;
+      for (const [kind, re] of rules) {
+        re.lastIndex = i;
+        const m = re.exec(src);
+        if (!m || m.index !== i) continue;
+        const text = m[0];
+        if (kind === "id") {
+          if (KW.has(text)) out += '<span class="tok-kw">' + text + "</span>";
+          else if (TYPES.has(text)) out += '<span class="tok-typ">' + text + "</span>";
+          else out += esc(text);
+        } else if (kind === "any") {
+          out += esc(text);
+        } else {
+          out += '<span class="tok-' + kind + '">' + esc(text) + "</span>";
+        }
+        i += text.length;
+        matched = true;
+        break;
+      }
+      if (!matched) { out += esc(src[i]); i++; }
+    }
+    return out;
+  }
+
+  function highlightAll() {
+    document.querySelectorAll("pre > code.cpp").forEach((code) => {
+      code.innerHTML = highlightCpp(code.textContent);
+    });
+  }
+
+  // --- Interactive widget: integrator comparison -----------------------------
+  // Mirrors Chapter 5's orbit demo, in the browser: a 2D harmonic oscillator
+  // a = -k x integrated by three methods, so you can watch how the timestep
+  // controls stability and energy drift.
+  function initIntegratorWidget(root) {
+    const canvas = root.querySelector("canvas");
+    const ctx = canvas.getContext("2d");
+    const dtSlider = root.querySelector(".dt");
+    const dtOut = root.querySelector(".dt-val");
+    const energyOut = root.querySelector(".energy");
+    const resetBtn = root.querySelector(".reset");
+    const K = 6.0;
+
+    const methods = [
+      { name: "Explicit Euler", color: "#f0645f", step: (s, dt) => { const a = -K, ax = a * s.x, ay = a * s.y;
+          return { x: s.x + s.vx * dt, y: s.y + s.vy * dt, vx: s.vx + ax * dt, vy: s.vy + ay * dt }; } },
+      { name: "Semi-implicit",  color: "#29c8be", step: (s, dt) => { const vx = s.vx - K * s.x * dt, vy = s.vy - K * s.y * dt;
+          return { x: s.x + vx * dt, y: s.y + vy * dt, vx, vy }; } },
+      { name: "RK4",            color: "#96d25a", step: (s, dt) => rk4(s, dt) },
+    ];
+    function accel(x) { return -K * x; }
+    function rk4(s, dt) {
+      const k1 = { x: s.vx, y: s.vy, vx: accel(s.x), vy: accel(s.y) };
+      const s2 = { x: s.x + k1.x * dt / 2, y: s.y + k1.y * dt / 2, vx: s.vx + k1.vx * dt / 2, vy: s.vy + k1.vy * dt / 2 };
+      const k2 = { x: s2.vx, y: s2.vy, vx: accel(s2.x), vy: accel(s2.y) };
+      const s3 = { x: s.x + k2.x * dt / 2, y: s.y + k2.y * dt / 2, vx: s.vx + k2.vx * dt / 2, vy: s.vy + k2.vy * dt / 2 };
+      const k3 = { x: s3.vx, y: s3.vy, vx: accel(s3.x), vy: accel(s3.y) };
+      const s4 = { x: s.x + k3.x * dt, y: s.y + k3.y * dt, vx: s.vx + k3.vx * dt, vy: s.vy + k3.vy * dt };
+      const k4 = { x: s4.vx, y: s4.vy, vx: accel(s4.x), vy: accel(s4.y) };
+      return {
+        x: s.x + (k1.x + 2 * k2.x + 2 * k3.x + k4.x) * dt / 6,
+        y: s.y + (k1.y + 2 * k2.y + 2 * k3.y + k4.y) * dt / 6,
+        vx: s.vx + (k1.vx + 2 * k2.vx + 2 * k3.vx + k4.vx) * dt / 6,
+        vy: s.vy + (k1.vy + 2 * k2.vy + 2 * k3.vy + k4.vy) * dt / 6,
+      };
+    }
+
+    let states, trails;
+    function reset() {
+      const r = 1.4, omega = Math.sqrt(K);
+      states = methods.map(() => ({ x: r, y: 0, vx: 0, vy: omega * r }));
+      trails = methods.map(() => []);
+    }
+    reset();
+    resetBtn.addEventListener("click", reset);
+
+    function cssVar(name) { return getComputedStyle(document.body).getPropertyValue(name).trim(); }
+
+    function frame() {
+      const dt = parseFloat(dtSlider.value);
+      dtOut.textContent = dt.toFixed(3);
+
+      // Fit the drawing buffer to the element's CSS size (crisp on HiDPI).
+      const cssW = canvas.clientWidth, cssH = 300;
+      const dpr = window.devicePixelRatio || 1;
+      if (canvas.width !== cssW * dpr || canvas.height !== cssH * dpr) {
+        canvas.width = cssW * dpr; canvas.height = cssH * dpr; canvas.style.height = cssH + "px";
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, cssW, cssH);
+
+      const cx = cssW / 2, cy = cssH / 2, scale = Math.min(cssW, cssH) / 5;
+      const P = (x, y) => [cx + x * scale, cy - y * scale];
+
+      // Axes.
+      ctx.strokeStyle = cssVar("--border"); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(cssW, cy);
+      ctx.moveTo(cx, 0); ctx.lineTo(cx, cssH); ctx.stroke();
+
+      // Step + draw each integrator.
+      let energyText = "";
+      methods.forEach((m, i) => {
+        states[i] = m.step(states[i], dt);
+        const s = states[i];
+        trails[i].push([s.x, s.y]);
+        if (trails[i].length > 400) trails[i].shift();
+        // Clamp runaway (explicit Euler can diverge to infinity).
+        if (!isFinite(s.x) || Math.abs(s.x) > 12) { const r = 1.4, omega = Math.sqrt(K);
+          states[i] = { x: r, y: 0, vx: 0, vy: omega * r }; trails[i] = []; }
+
+        ctx.strokeStyle = m.color; ctx.globalAlpha = 0.55; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        trails[i].forEach((pt, j) => { const [px, py] = P(pt[0], pt[1]); j ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        const [dx, dy] = P(s.x, s.y);
+        ctx.fillStyle = m.color; ctx.beginPath(); ctx.arc(dx, dy, 4, 0, 7); ctx.fill();
+
+        const E = 0.5 * (s.vx * s.vx + s.vy * s.vy) + 0.5 * K * (s.x * s.x + s.y * s.y);
+        energyText += m.name + " E=" + (isFinite(E) ? E.toFixed(2) : "∞") + "   ";
+      });
+      energyOut.textContent = energyText;
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // --- Wire everything up ----------------------------------------------------
+  document.addEventListener("DOMContentLoaded", function () {
+    buildTopbar();
+    const currentNum = document.body.getAttribute("data-chapter");
+
+    // Only chapter/content pages get the sidebar+pager layout wrapper.
+    const article = document.querySelector("article");
+    if (article && !document.querySelector(".layout")) {
+      const layout = document.createElement("div");
+      layout.className = "layout";
+      const content = document.createElement("div");
+      content.className = "content";
+      article.parentNode.insertBefore(layout, article);
+      layout.appendChild(buildSidebar(currentNum || ""));
+      content.appendChild(article);
+      layout.appendChild(content);
+
+      if (currentNum) {
+        const pager = buildPager(currentNum);
+        if (pager) article.appendChild(pager);
+      }
+    }
+
+    highlightAll();
+    document.querySelectorAll(".js-integrator-widget").forEach(initIntegratorWidget);
+  });
+
+  // Expose the upcoming-parts list for the home page to render.
+  window.__P3D_UPCOMING = UPCOMING;
+})();

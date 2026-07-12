@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 3 · Matrices &amp; Transforms — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="03">
+<article>
+  <span class="eyebrow">Part I · Foundations · Chapter 3</span>
+  <h1>Matrices &amp; Transforms</h1>
+  <p class="lead">A matrix is a verb. “Move 5 to the right,” “spin 30°,” “make twice as
+  big” — each is a 4×4 matrix, and multiplying matrices <em>chains</em> those verbs
+  into one. That single idea builds scene hierarchies, positions rigid bodies, and
+  drives the camera.</p>
+
+  <h2>Goal</h2>
+  <p>Understand what a transform matrix does to a point, why we use 4×4 matrices for a
+  3D world, and why the <em>order</em> of multiplication matters. Code lives in
+  <code>common/math/mat4.hpp</code>; the demo is <code>chapters/03-matrices/main.cpp</code>.</p>
+
+  <h2>A transform is “new coordinates for a point”</h2>
+  <p>Feed a point in, get a moved point out. The matrix stores the recipe. Multiplying
+  a matrix by a (column) vector produces the transformed vector:</p>
+  <div class="eq">
+    <math display="block">
+      <mrow>
+        <msup><mi>v</mi><mo>′</mo></msup><mo>=</mo><mi>M</mi><mi>v</mi>
+      </mrow>
+    </math>
+  </div>
+  <p>The cleanest way to read <math><mi>M</mi><mi>v</mi></math>: the result is a blend
+  of the matrix’s <strong>columns</strong>, weighted by the components of
+  <math><mi>v</mi></math>. The first column is “where the x-axis lands,” the second is
+  “where the y-axis lands,” the third “where the z-axis lands.” A transform is
+  literally a description of where the axes go.</p>
+
+  <h2>Why 4×4, and the mysterious fourth number</h2>
+  <div class="callout intuition">
+    <span class="label">Intuition</span>
+    Rotation and scaling can be done with a 3×3 matrix, but <strong>translation
+    cannot</strong> — sliding everything over is not a “blend of the axes.” The trick
+    (homogeneous coordinates) is to add a fourth coordinate <math><mi>w</mi></math>
+    and work in 4D. Writing a point as <math><mo>(</mo><mi>x</mi><mo>,</mo><mi>y</mi><mo>,</mo><mi>z</mi><mo>,</mo><mn>1</mn><mo>)</mo></math>
+    lets a 4×4 matrix fold translation in as ordinary multiplication. A direction uses
+    <math><mi>w</mi><mo>=</mo><mn>0</mn></math>, which makes translation ignore it —
+    exactly right, since “north” is north no matter where you stand.
+  </div>
+
+  <p>Here is the translation matrix. Notice the translation sits in the last column,
+  and the <math><mn>1</mn></math> in the point’s <math><mi>w</mi></math> is what pulls
+  it into the result:</p>
+  <div class="eq">
+    <math display="block">
+      <mrow>
+        <mo>[</mo>
+        <mtable>
+          <mtr><mtd><mn>1</mn></mtd><mtd><mn>0</mn></mtd><mtd><mn>0</mn></mtd><mtd><msub><mi>t</mi><mi>x</mi></msub></mtd></mtr>
+          <mtr><mtd><mn>0</mn></mtd><mtd><mn>1</mn></mtd><mtd><mn>0</mn></mtd><mtd><msub><mi>t</mi><mi>y</mi></msub></mtd></mtr>
+          <mtr><mtd><mn>0</mn></mtd><mtd><mn>0</mn></mtd><mtd><mn>1</mn></mtd><mtd><msub><mi>t</mi><mi>z</mi></msub></mtd></mtr>
+          <mtr><mtd><mn>0</mn></mtd><mtd><mn>0</mn></mtd><mtd><mn>0</mn></mtd><mtd><mn>1</mn></mtd></mtr>
+        </mtable>
+        <mo>]</mo>
+        <mo>[</mo><mtable><mtr><mtd><mi>x</mi></mtd></mtr><mtr><mtd><mi>y</mi></mtd></mtr><mtr><mtd><mi>z</mi></mtd></mtr><mtr><mtd><mn>1</mn></mtd></mtr></mtable><mo>]</mo>
+        <mo>=</mo>
+        <mo>[</mo><mtable><mtr><mtd><mi>x</mi><mo>+</mo><msub><mi>t</mi><mi>x</mi></msub></mtd></mtr><mtr><mtd><mi>y</mi><mo>+</mo><msub><mi>t</mi><mi>y</mi></msub></mtd></mtr><mtr><mtd><mi>z</mi><mo>+</mo><msub><mi>t</mi><mi>z</mi></msub></mtd></mtr><mtr><mtd><mn>1</mn></mtd></mtr></mtable><mo>]</mo>
+      </mrow>
+    </math>
+  </div>
+
+  <h2>Rotation, in one picture</h2>
+  <p>A 2D rotation by angle <math><mi>θ</mi></math> sends the point
+  <math><mo>(</mo><mi>x</mi><mo>,</mo><mi>y</mi><mo>)</mo></math> to
+  <math><mo>(</mo><mi>x</mi><mi>cos</mi><mi>θ</mi><mo>−</mo><mi>y</mi><mi>sin</mi><mi>θ</mi><mo>,</mo><mspace width="4px"/><mi>x</mi><mi>sin</mi><mi>θ</mi><mo>+</mo><mi>y</mi><mi>cos</mi><mi>θ</mi><mo>)</mo></math>.
+  Those coefficients are exactly the rotation matrix. The 3D versions just do this in
+  one of the three coordinate planes at a time.</p>
+
+  <h2>Composition = multiplication, read right-to-left</h2>
+  <p>Chaining transforms is multiplying their matrices. But the order is the classic
+  trap: in a product, the matrix on the <strong>right</strong> is applied
+  <strong>first</strong>.</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 660 150" role="img" aria-label="Transform chain applied right to left">
+      <defs><marker id="m-a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="var(--d-accent2)"/></marker></defs>
+      <rect x="40" y="52" width="110" height="46" rx="9" fill="var(--surface-2)" stroke="var(--d-grid)"/>
+      <text x="95" y="72" text-anchor="middle" font-size="13" fill="var(--d-stroke)">point v</text>
+      <text x="95" y="89" text-anchor="middle" font-size="11" fill="var(--d-muted)">local space</text>
+
+      <rect x="200" y="52" width="90" height="46" rx="9" fill="var(--surface-2)" stroke="var(--d-grid)"/>
+      <text x="245" y="76" text-anchor="middle" font-size="13" fill="var(--d-stroke)">S · v</text>
+      <text x="245" y="90" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">scale</text>
+
+      <rect x="340" y="52" width="110" height="46" rx="9" fill="var(--surface-2)" stroke="var(--d-grid)"/>
+      <text x="395" y="76" text-anchor="middle" font-size="13" fill="var(--d-stroke)">R · S · v</text>
+      <text x="395" y="90" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">then rotate</text>
+
+      <rect x="500" y="52" width="130" height="46" rx="9" fill="var(--d-accent)" opacity="0.9"/>
+      <text x="565" y="76" text-anchor="middle" font-size="13" font-weight="700" fill="#06231f">T·R·S·v</text>
+      <text x="565" y="90" text-anchor="middle" font-size="10.5" fill="#06231f">then translate</text>
+
+      <path d="M150 75 H200" stroke="var(--d-accent2)" stroke-width="1.6" marker-end="url(#m-a)"/>
+      <path d="M290 75 H340" stroke="var(--d-accent2)" stroke-width="1.6" marker-end="url(#m-a)"/>
+      <path d="M450 75 H500" stroke="var(--d-accent2)" stroke-width="1.6" marker-end="url(#m-a)"/>
+      <text x="335" y="128" text-anchor="middle" font-size="12" fill="var(--d-muted)">the matrix is written  T · R · S  — rightmost acts first</text>
+    </svg>
+    <figcaption>Reading a transform chain right-to-left tells you the order a point
+    actually experiences: scale in its own space, then rotate, then place in the world.</figcaption>
+  </figure>
+  <p>Order matters because rotation and translation don’t commute: “rotate then move”
+  lands somewhere different from “move then rotate.” This is <em>the</em> most common
+  source of “why is my object in the wrong place” bugs.</p>
+
+  <h2>The code</h2>
+  <p>Matrix–matrix multiply is just “apply this transform to each column of that one.”
+  It is the whole of composition:</p>
+  <pre><code class="cpp">// Column c of the result is M applied to column c of N — i.e. compose them.
+inline constexpr Mat4 operator*(const Mat4&amp; m, const Mat4&amp; n) {
+    Mat4 r;
+    for (int col = 0; col &lt; 4; ++col)
+        for (int row = 0; row &lt; 4; ++row) {
+            Real sum = 0;
+            for (int k = 0; k &lt; 4; ++k) sum += m.at(row, k) * n.at(k, col);
+            r.at(row, col) = sum;
+        }
+    return r;
+}</code></pre>
+  <p>And applying a transform to a point treats it as
+  <math><mi>w</mi><mo>=</mo><mn>1</mn></math> so translation is included:</p>
+  <pre><code class="cpp">inline constexpr Vec3 transformPoint(const Mat4&amp; m, const Vec3&amp; p) {
+    return {
+        m.at(0,0)*p.x + m.at(0,1)*p.y + m.at(0,2)*p.z + m.at(0,3),
+        m.at(1,0)*p.x + m.at(1,1)*p.y + m.at(1,2)*p.z + m.at(1,3),
+        m.at(2,0)*p.x + m.at(2,1)*p.y + m.at(2,2)*p.z + m.at(2,3),
+    };
+}</code></pre>
+
+  <div class="callout tip">
+    <span class="label">Storage note: column-major</span>
+    We store matrices column-by-column (the OpenGL convention), so the translation
+    lives in elements 12–14. The <code>at(row, col)</code> accessor hides that so the
+    code above reads like ordinary math. See the long comment atop
+    <code>mat4.hpp</code> for the full layout.
+  </div>
+
+  <h2>Run it — a hierarchy from pure composition</h2>
+  <pre><code class="cpp">./build/bin/ch03_matrices     # press 3 for the orbiting child, W for wireframe</code></pre>
+  <p>A big cube spins in place. Press <kbd>3</kbd> and a small cube orbits it. The
+  orbit isn’t special-cased — it’s built entirely by composing transforms:</p>
+  <pre><code class="cpp">Mat4 orbit =
+    rotationY(t * 1.1f) *            // revolve around the big cube (acts last)
+    translation({3, 0, 0}) *         // push out along +x (the arm)
+    rotationY(t * 2.5f) *            // the child's own spin
+    rotationX(t * 1.3f);             // (acts first, in the child's local space)</code></pre>
+  <p>Read it bottom-to-top: the child spins in its own space, is pushed out along an
+  arm, and then that whole arm is rotated about the origin — which sweeps the child
+  around in a circle. That’s how a moon orbits a planet, or a hand rides on a
+  forearm.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>Swap the order of the <code>translation</code> and the first
+      <code>rotationY</code> in <code>orbit</code>. The child stops orbiting and just
+      spins in place off-center — proof that order changes meaning.</li>
+    <li>In scene <kbd>2</kbd> the cube also pulses in scale. Change
+      <code>spin * scaling(...)</code> to <code>scaling(...) * spin</code> and watch the
+      box shear as it turns — you’re now scaling <em>after</em> rotating.</li>
+    <li>Press <kbd>W</kbd> to see the wireframe and confirm the cube is a genuine 3D
+      box being transformed, not a flat picture.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>A matrix transforms a point; its columns say where the axes land.</li>
+    <li>4×4 + a <math><mi>w</mi></math> coordinate lets one matrix do translation and
+      perspective too.</li>
+    <li>Compose transforms by multiplying; the <strong>rightmost is applied first</strong>.</li>
+    <li>Hierarchies (and, soon, camera and rigid bodies) are just transform chains.</li>
+  </ul>
+</article>
+</body>
+</html>

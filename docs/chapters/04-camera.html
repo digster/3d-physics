@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 4 · Camera &amp; Projection — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="04">
+<article>
+  <span class="eyebrow">Part I · Foundations · Chapter 4</span>
+  <h1>Camera &amp; Projection</h1>
+  <p class="lead">How does a scene full of 3D points become a flat image on your
+  screen? Through a short pipeline of matrix multiplies and one magic division. By the
+  end of this chapter you’ll have written a complete software 3D renderer — the thing
+  that lets us <em>see</em> every simulation to come.</p>
+
+  <h2>Goal</h2>
+  <p>Follow a single vertex from the model all the way to a pixel, and understand each
+  stage: the view matrix, the perspective matrix, the perspective divide, backface
+  culling, and the painter’s algorithm. Code:
+  <code>common/render/renderer3d.cpp</code> and <code>common/render/camera.hpp</code>.</p>
+
+  <h2>The pipeline</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 680 150" role="img" aria-label="The rendering pipeline stages">
+      <defs><marker id="pl" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="var(--d-accent2)"/></marker></defs>
+      <g font-size="11.5" text-anchor="middle">
+        <rect x="8"   y="55" width="96" height="44" rx="9" fill="var(--surface-2)" stroke="var(--d-grid)"/><text x="56" y="74" fill="var(--d-stroke)">model</text><text x="56" y="90" fill="var(--d-muted)">the mesh</text>
+        <rect x="140" y="55" width="96" height="44" rx="9" fill="var(--surface-2)" stroke="var(--d-grid)"/><text x="188" y="74" fill="var(--d-stroke)">world</text><text x="188" y="90" fill="var(--d-muted)">× model</text>
+        <rect x="272" y="55" width="96" height="44" rx="9" fill="var(--surface-2)" stroke="var(--d-grid)"/><text x="320" y="74" fill="var(--d-stroke)">view</text><text x="320" y="90" fill="var(--d-muted)">× camera</text>
+        <rect x="404" y="55" width="96" height="44" rx="9" fill="var(--surface-2)" stroke="var(--d-grid)"/><text x="452" y="74" fill="var(--d-stroke)">clip</text><text x="452" y="90" fill="var(--d-muted)">× lens</text>
+        <rect x="536" y="55" width="120" height="44" rx="9" fill="var(--d-accent)" opacity="0.9"/><text x="596" y="74" fill="#06231f" font-weight="700">screen</text><text x="596" y="90" fill="#06231f">÷ w, viewport</text>
+      </g>
+      <path d="M104 77 H140" stroke="var(--d-accent2)" stroke-width="1.5" marker-end="url(#pl)"/>
+      <path d="M236 77 H272" stroke="var(--d-accent2)" stroke-width="1.5" marker-end="url(#pl)"/>
+      <path d="M368 77 H404" stroke="var(--d-accent2)" stroke-width="1.5" marker-end="url(#pl)"/>
+      <path d="M500 77 H536" stroke="var(--d-accent2)" stroke-width="1.5" marker-end="url(#pl)"/>
+    </svg>
+    <figcaption>Every vertex takes this journey each frame. The first three arrows are
+    matrix multiplies (Chapter 3); the last step is the division that creates depth.</figcaption>
+  </figure>
+
+  <h2>The view matrix: move the world, not the camera</h2>
+  <div class="callout intuition">
+    <span class="label">Intuition</span>
+    There is no real “camera” in the math. Instead of moving a camera to look at the
+    scene, we move the whole <em>scene</em> so that the camera would sit at the origin
+    looking down one axis. The <strong>view matrix</strong> is that world-shifting
+    transform. It’s built from the camera’s position and the direction it faces.
+  </div>
+  <p>Our <code>lookAt</code> builds three axes — right, up, and forward — from the eye
+  position and target, and packs them into a matrix. The demo’s
+  <code>OrbitCamera</code> keeps things friendly: it stores a target, a distance, and
+  two angles (yaw, pitch), and reconstructs the eye position with spherical-to-
+  Cartesian trig. Dragging the mouse changes the angles; the wheel changes the
+  distance.</p>
+  <pre><code class="cpp">Vec3 position() const {                 // spherical → Cartesian
+    const Real cp = std::cos(pitch), sp = std::sin(pitch);
+    const Real cy = std::cos(yaw),   sy = std::sin(yaw);
+    return { target.x + distance*cp*sy,
+             target.y + distance*sp,
+             target.z + distance*cp*cy };
+}
+Mat4 viewMatrix() const { return lookAt(position(), target, axis::Y); }</code></pre>
+
+  <h2>Perspective: why distant things look small</h2>
+  <p>The perspective matrix is the lens. Its job is to copy the camera-space depth
+  into the <math><mi>w</mi></math> coordinate, so that the next step — dividing by
+  <math><mi>w</mi></math> — shrinks far things. That division is the entire secret of
+  perspective:</p>
+  <div class="eq">
+    <math display="block">
+      <mrow>
+        <mo>(</mo><mi>x</mi><mo>,</mo><mi>y</mi><mo>,</mo><mi>z</mi><mo>,</mo><mi>w</mi><mo>)</mo>
+        <mspace width="8px"/><mo>&#10230;</mo><mspace width="8px"/>
+        <mo>(</mo><mfrac><mi>x</mi><mi>w</mi></mfrac><mo>,</mo><mfrac><mi>y</mi><mi>w</mi></mfrac><mo>,</mo><mfrac><mi>z</mi><mi>w</mi></mfrac><mo>)</mo>
+      </mrow>
+    </math>
+  </div>
+  <div class="callout math">
+    <span class="label">Why this makes depth</span>
+    The perspective matrix sets <math><mi>w</mi><mo>=</mo><mo>−</mo><msub><mi>z</mi><mtext>view</mtext></msub></math>
+    — the distance in front of the camera. So a point twice as far away has twice the
+    <math><mi>w</mi></math>, and dividing by it halves the point’s <math><mi>x</mi></math>
+    and <math><mi>y</mi></math> on screen. Two objects the same real size, one twice as
+    far, draw at half the size. That’s literally similar triangles, done by one divide.
+  </div>
+
+  <p>Field of view is baked into this matrix. A narrow FOV looks like a telephoto lens
+  (flat, compressed depth); a wide FOV looks fish-eye (exaggerated depth). The demo
+  binds it to the <kbd>[</kbd> and <kbd>]</kbd> keys so you can feel the difference on
+  a fixed scene.</p>
+
+  <h2>Two cleanups before drawing</h2>
+  <h3>Backface culling</h3>
+  <p>On a closed solid, you never see the back of a face — the front of the object is
+  in the way. So for each triangle we ask “does this face point toward the camera?”
+  with a dot product, and skip it if not. That halves the triangles we draw, for free:</p>
+  <pre><code class="cpp">// The view-space normal points toward the camera for front faces, so a
+// non-negative dot with the triangle centroid means "facing away" → skip it.
+const Vec3 viewNormal = cross(v1 - v0, v2 - v0);
+const Vec3 centroid   = (v0 + v1 + v2) * (1.0f / 3.0f);
+if (!wireframe_ &amp;&amp; dot(viewNormal, centroid) &gt;= 0) continue;</code></pre>
+
+  <h3>The painter’s algorithm</h3>
+  <p>We have no depth buffer, so how do near objects hide far ones? We sort every
+  triangle back-to-front and draw them in that order — like a painter laying down the
+  background before the foreground. The key design choice: the renderer collects
+  triangles from <em>all</em> meshes into one list and sorts once, so different objects
+  occlude each other correctly.</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 170" role="img" aria-label="Painter's algorithm draws far to near">
+      <rect x="70"  y="55" width="150" height="95" rx="8" fill="var(--d-d)" opacity="0.85"/>
+      <text x="145" y="46" text-anchor="middle" font-size="12" fill="var(--d-muted)">1 · farthest</text>
+      <rect x="180" y="75" width="150" height="80" rx="8" fill="var(--d-b)" opacity="0.9"/>
+      <text x="255" y="66" text-anchor="middle" font-size="12" fill="var(--d-muted)">2</text>
+      <rect x="300" y="95" width="150" height="70" rx="8" fill="var(--d-a)"/>
+      <text x="375" y="86" text-anchor="middle" font-size="12" fill="var(--d-muted)">3 · nearest</text>
+      <text x="530" y="110" font-size="12" fill="var(--d-stroke)">drawn in depth</text>
+      <text x="530" y="128" font-size="12" fill="var(--d-stroke)">order → correct</text>
+      <text x="530" y="146" font-size="12" fill="var(--d-stroke)">occlusion</text>
+    </svg>
+    <figcaption>Sort by depth, paint far-to-near. Later (nearer) triangles cover earlier
+    ones, so occlusion falls out of the draw order.</figcaption>
+  </figure>
+  <div class="callout warn">
+    <span class="label">Its one weakness</span>
+    Triangles that <em>interpenetrate</em> can’t be ordered correctly by a single depth
+    value, so they may flicker for a frame. For a physics tutorial that’s fine —
+    interpenetration is exactly the state the collision solver is about to fix — and
+    the <kbd>W</kbd> wireframe toggle makes any overlap easy to read.
+  </div>
+
+  <h2>Flat shading, in one line of light</h2>
+  <p>To give shapes form we tint each face by how squarely it faces a light — a single
+  <em>Lambert</em> term, <math><mi>max</mi><mo>(</mo><mn>0</mn><mo>,</mo><mi>n</mi><mo>·</mo><mi>ℓ</mi><mo>)</mo></math>,
+  where <math><mi>n</mi></math> is the face normal (a cross product of two edges) and
+  <math><mi>ℓ</mi></math> points toward the light. An ambient floor keeps shadowed
+  faces from going pure black.</p>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch04_camera       # drag to orbit, wheel to zoom, [ ] change FOV, 1-3 scenes</code></pre>
+  <p>Fly around the primitive zoo. Scene <kbd>2</kbd> is a grid of cubes — a good
+  stress test for the depth sort; watch how the cubes always occlude one another
+  correctly as you orbit.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>Press <kbd>]</kbd> repeatedly to widen the FOV toward fish-eye, then <kbd>[</kbd>
+      to a narrow telephoto. Same scene, dramatically different sense of depth — all
+      from one matrix.</li>
+    <li>Orbit until you’re nearly edge-on to the ground plane. The near-plane clipping
+      keeps geometry that crosses the camera from exploding into garbage.</li>
+    <li>Toggle <kbd>W</kbd>: with culling off in wireframe mode you can see the back
+      faces you normally never render.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>Rendering is a matrix pipeline: <strong>model → view → clip</strong>, then
+      <strong>÷ w</strong> to a screen.</li>
+    <li>The view matrix moves the world in front of a camera fixed at the origin.</li>
+    <li>The perspective divide is what makes distant things small.</li>
+    <li>No depth buffer? <strong>Cull backfaces</strong> and <strong>sort back-to-front</strong>.</li>
+  </ul>
+</article>
+</body>
+</html>
