@@ -140,11 +140,35 @@ shear, and bend distance constraints, rendered by rebuilding a `Mesh` from the
 particle positions each frame and drawing it **double-sided** (a flag has no
 "inside") — the one rendering feature Part II added to `Renderer3D::drawMesh`.
 
+### Part III — Rigid Bodies (implemented)
+
+| File | Responsibility | Introduced in |
+|------|----------------|---------------|
+| `common/math/mat3.hpp` | 3×3 matrix (multiply, transpose, inverse) — the natural size for inertia tensors and rotation; `toMat3(quat)` lives in `quat.hpp` | Ch 11 |
+| `physics/inertia.hpp` | inertia tensors for box/sphere/cylinder, plus `shift` (parallel-axis theorem) for composite bodies | Ch 11 |
+| `physics/rigidbody.hpp` | linear + angular state, `applyForceAtPoint` (torque = r×F), and the integration step | Ch 11 |
+
+**Key decision — store angular momentum `L`, not angular velocity `ω`.** Under
+zero torque `L` is exactly conserved, so keeping it as the primary variable
+makes free rotation robust; `ω = I⁻¹_world · L` is derived each step (with
+`I⁻¹_world = R · I⁻¹_body · Rᵀ`).
+
+**Key decision — exponential-map midpoint orientation update.** A naive explicit
+step (`q += ½ ω⊗q · dt`) conserves `L` but *injects energy* — a tumbling body
+spins ever faster instead of flipping (the Chapter 5 energy-leak, in rotational
+form). `RigidBody::integrate` instead samples `ω` at the step midpoint and
+rotates the orientation by the exact angle `|ω|·dt` (`RigidBody::spin`). Energy
+then holds steady, which is exactly what lets the **Dzhanibekov / intermediate-
+axis** effect appear (Ch 11 scene 1) — verified in `tests/test_rigidbody.cpp` by
+checking that the intermediate-axis spin axis reverses while the extreme axes stay
+put, all with bounded kinetic energy. Chapter 10 introduces the orientation math
+itself (gimbal lock vs. quaternions, slerp) using only the existing `quat.hpp`.
+
 ### Planned (later parts)
 
-Rigid bodies + inertia tensors (III) → colliders, broadphase, SAT, GJK/EPA (IV)
-→ contact manifolds + sequential-impulse solver + sleeping (V) → joints (VI) →
-XPBD soft bodies (VII). Filled in as those parts land.
+Colliders, broadphase, SAT, GJK/EPA (IV) → contact manifolds + sequential-impulse
+solver + sleeping (V) → joints (VI) → XPBD soft bodies (VII). Filled in as those
+parts land.
 
 ## `docs/` — the tutorial (no build step)
 

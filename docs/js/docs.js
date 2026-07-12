@@ -20,11 +20,12 @@
     { part: "Part II · Particles & Forces", num: "07", slug: "07-springs",   title: "Springs & Dampers" },
     { part: "Part II · Particles & Forces", num: "08", slug: "08-ropes",     title: "Ropes & Constraints" },
     { part: "Part II · Particles & Forces", num: "09", slug: "09-cloth",     title: "Cloth" },
+    { part: "Part III · Rigid Bodies", num: "10", slug: "10-quaternions", title: "Rotation & Quaternions" },
+    { part: "Part III · Rigid Bodies", num: "11", slug: "11-rigidbody",   title: "Rigid-Body Dynamics" },
   ];
 
   // Later parts, shown greyed-out on the roadmap so the arc is visible.
   const UPCOMING = [
-    "Part III · Rigid Bodies",
     "Part IV · Collision Detection", "Part V · Collision Response",
     "Part VI · Constraints & Joints", "Part VII · Beyond Rigid Bodies",
   ];

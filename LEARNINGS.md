@@ -21,6 +21,29 @@ Hard-won, project-specific gotchas. Read before you trip over the same wire.
   fallback pins the real git tag `release-3.4.8`. Don’t assume the brew string is
   a formula revision.
 
+## Physics
+
+- **Free rotation leaks energy with a naive quaternion step.** Integrating
+  orientation as `q += ½ ω⊗q · dt; normalize` conserves angular momentum `L`
+  (we store it directly) but steadily *adds kinetic energy* — a torque-free spin
+  accelerates without bound instead of tumbling. It's the Chapter-5 explicit-Euler
+  energy leak wearing a rotational costume. Fix: the exponential-map **midpoint**
+  step in `RigidBody::integrate` — sample `ω` at the step midpoint and rotate by
+  the exact angle `|ω|·dt`. After that, energy is bounded and free precession
+  (the Dzhanibekov effect) is correct.
+
+- **Test the right signal for the Dzhanibekov flip.** The intermediate-axis flip
+  does *not* show up as the world-frame `ω` component along the spin axis changing
+  sign — that stays roughly constant. The flip is the **body-fixed spin axis
+  reversing in world space** (equivalently, the body-frame `ω` reversing). Track a
+  body-fixed axis via `rotate(orientation, axis)` and watch its dot with the
+  initial direction go negative. An early test asserted on world-frame `ω_y` and
+  wrongly "failed" a correct simulation.
+
+- **`inertia::box` takes half-extents** (to match `mesh::box`), so the moment
+  formula collapses to `m/3·(h_i² + h_j²)`, not the textbook `m/12·(s_i² + s_j²)`
+  with full side lengths `s = 2h`. Easy to be off by 4× if you mix them.
+
 ## Rendering (software pipeline)
 
 - **Winding drives everything.** Mesh triangles are wound counter-clockwise as

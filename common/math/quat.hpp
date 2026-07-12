@@ -26,6 +26,7 @@
 
 #include "scalar.hpp"
 #include "vec3.hpp"
+#include "mat3.hpp"
 #include "mat4.hpp"
 #include <cmath>
 
@@ -112,6 +113,21 @@ inline Mat4 toMat4(const Quat& q) {
     m.at(0, 0) = 1 - 2*(yy + zz); m.at(0, 1) = 2*(xy - wz);     m.at(0, 2) = 2*(xz + wy);
     m.at(1, 0) = 2*(xy + wz);     m.at(1, 1) = 1 - 2*(xx + zz); m.at(1, 2) = 2*(yz - wx);
     m.at(2, 0) = 2*(xz - wy);     m.at(2, 1) = 2*(yz + wx);     m.at(2, 2) = 1 - 2*(xx + yy);
+    return m;
+}
+
+// The same rotation as a 3x3 matrix (no translation). Rigid-body dynamics needs
+// this to rotate the body-space inertia tensor into world space each step.
+// Assumes q is unit-length.
+inline Mat3 toMat3(const Quat& q) {
+    const Real xx = q.x*q.x, yy = q.y*q.y, zz = q.z*q.z;
+    const Real xy = q.x*q.y, xz = q.x*q.z, yz = q.y*q.z;
+    const Real wx = q.w*q.x, wy = q.w*q.y, wz = q.w*q.z;
+
+    Mat3 m;
+    m.at(0,0) = 1 - 2*(yy + zz); m.at(0,1) = 2*(xy - wz);     m.at(0,2) = 2*(xz + wy);
+    m.at(1,0) = 2*(xy + wz);     m.at(1,1) = 1 - 2*(xx + zz); m.at(1,2) = 2*(yz - wx);
+    m.at(2,0) = 2*(xz - wy);     m.at(2,1) = 2*(yz + wx);     m.at(2,2) = 1 - 2*(xx + yy);
     return m;
 }
 

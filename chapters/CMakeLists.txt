@@ -25,3 +25,7 @@ add_chapter(ch06_particles   06-particles   physics)
 add_chapter(ch07_springs     07-springs     physics)
 add_chapter(ch08_ropes       08-ropes       physics)
 add_chapter(ch09_cloth       09-cloth       physics)
+
+# Part III — Rigid Bodies
+add_chapter(ch10_quaternions 10-quaternions physics)
+add_chapter(ch11_rigidbody   11-rigidbody   physics)

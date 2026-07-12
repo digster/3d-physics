@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 11 · Rigid-Body Dynamics — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="11">
+<article>
+  <span class="eyebrow">Part III · Rigid Bodies · Chapter 11</span>
+  <h1>Rigid-Body Dynamics</h1>
+  <p class="lead">Now we give bodies the rotational half of Newton’s laws: torque, the
+  inertia tensor, and angular momentum. Get them right and something genuinely
+  spooky appears for free — a handle spinning in space that flips itself end-over-end,
+  again and again, with nothing touching it. It’s not a trick; it’s physics, and by the
+  end of this page you’ll know exactly why it happens.</p>
+
+  <h2>Goal</h2>
+  <p>Understand the inertia tensor and torque, integrate a spinning body stably, and
+  reproduce the Dzhanibekov (intermediate-axis) effect. Code:
+  <code>physics/rigidbody.hpp</code> and <code>physics/inertia.hpp</code>; demo:
+  <code>chapters/11-rigidbody/main.cpp</code>.</p>
+
+  <h2>Two copies of Newton, side by side</h2>
+  <p>Everything about rotation mirrors something you already know about straight-line
+  motion. Learn the correspondence and the whole chapter clicks into place:</p>
+  <div class="table-scroll">
+  <table>
+    <tr><th>Linear (motion)</th><th>Angular (rotation)</th></tr>
+    <tr><td>force <math><mi>F</mi></math></td><td>torque <math><mi>τ</mi><mo>=</mo><mi>r</mi><mo>×</mo><mi>F</mi></math></td></tr>
+    <tr><td>mass <math><mi>m</mi></math></td><td>inertia tensor <math><mi>I</mi></math></td></tr>
+    <tr><td>velocity <math><mi>v</mi></math></td><td>angular velocity <math><mi>ω</mi></math></td></tr>
+    <tr><td>momentum <math><mi>p</mi><mo>=</mo><mi>m</mi><mi>v</mi></math></td><td>angular momentum <math><mi>L</mi><mo>=</mo><mi>I</mi><mi>ω</mi></math></td></tr>
+    <tr><td>position <math><mi>x</mi></math></td><td>orientation <math><mi>q</mi></math> (a quaternion)</td></tr>
+  </table>
+  </div>
+  <p>The two halves run in parallel every step. A force through the centre of mass just
+  moves the body; the interesting new ingredient is a force applied <em>off-centre</em>.</p>
+
+  <h2>Torque: off-centre forces spin things</h2>
+  <p>Push a door at its handle and it swings; push right at the hinge and it doesn’t.
+  Same force, different <em>where</em>. That “where” is captured by <strong>torque</strong>,
+  the cross product of the lever arm <math><mi>r</mi></math> (from the centre of mass to
+  where the force is applied) with the force:</p>
+  <div class="eq"><math display="block"><mrow><mi>τ</mi><mo>=</mo><mi>r</mi><mo>×</mo><mi>F</mi></mrow></math></div>
+  <figure class="diagram">
+    <svg viewBox="0 0 620 190" role="img" aria-label="A force applied off-centre creates torque">
+      <defs><marker id="t-f" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--d-c)"/></marker>
+        <marker id="t-r" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--d-muted)"/></marker></defs>
+      <circle cx="200" cy="110" r="6" fill="var(--d-stroke)"/>
+      <text x="200" y="132" text-anchor="middle" font-size="11" fill="var(--d-muted)">centre of mass</text>
+      <line x1="200" y1="110" x2="410" y2="60" stroke="var(--d-muted)" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#t-r)"/>
+      <text x="300" y="78" font-size="13" fill="var(--d-muted)">r (lever arm)</text>
+      <line x1="410" y1="60" x2="410" y2="150" stroke="var(--d-c)" stroke-width="3" marker-end="url(#t-f)"/>
+      <text x="420" y="110" font-size="13" fill="var(--d-c)">F</text>
+      <path d="M235 95 a 40 40 0 0 1 -8 -40" fill="none" stroke="var(--d-accent)" stroke-width="2.5" marker-end="url(#t-f)"/>
+      <text x="150" y="70" font-size="13" fill="var(--d-accent)">spins!</text>
+    </svg>
+    <figcaption>A force off-centre both pushes the body and twists it. The twist is the
+    torque <math><mi>r</mi><mo>×</mo><mi>F</mi></math> — bigger lever arm, bigger spin.</figcaption>
+  </figure>
+
+  <h2>The inertia tensor: rotation’s version of mass</h2>
+  <p>Mass answers “how hard is this to get moving in a straight line?” The
+  <strong>inertia tensor</strong> answers “how hard is this to get <em>spinning</em>?” —
+  and the answer depends on the axis. A pencil is trivial to spin about its length but
+  hard to spin end-over-end. Because it differs by axis, a single number won’t do; we
+  need a 3×3 matrix.</p>
+  <div class="callout intuition">
+    <span class="label">What the numbers mean</span>
+    For a body aligned with its own natural axes (its <strong>principal axes</strong>),
+    the tensor is diagonal — just three numbers, the <em>moments of inertia</em> about
+    x, y, z. Each says how much the mass is spread out <em>away</em> from that axis
+    (mass far from the axis resists spinning more, which is why a figure skater speeds up
+    by pulling their arms in). For a solid box with half-sizes <math><mi>h</mi></math>,
+    the moment about x mixes the other two dimensions:
+    <math><msub><mi>I</mi><mrow><mi>x</mi><mi>x</mi></mrow></msub><mo>=</mo><mfrac><mi>m</mi><mn>3</mn></mfrac><mo>(</mo><msubsup><mi>h</mi><mi>y</mi><mn>2</mn></msubsup><mo>+</mo><msubsup><mi>h</mi><mi>z</mi><mn>2</mn></msubsup><mo>)</mo></math>.
+  </div>
+  <p>The tensor is stored in <em>body</em> space (constant, since a rigid body never
+  changes shape). To use it in the world as the body turns, we rotate it:
+  <math><msub><mi>I</mi><mtext>world</mtext></msub><mo>=</mo><mi>R</mi><mo>&#8201;</mo><mi>I</mi><mo>&#8201;</mo><msup><mi>R</mi><mi>T</mi></msup></math>,
+  where <math><mi>R</mi></math> is the body’s current rotation. Composite bodies (our
+  T-handle = shaft + crossbar) add their parts’ tensors via the <em>parallel-axis
+  theorem</em> — see <code>inertia::shift</code>.</p>
+
+  <h2>The crucial choice: store angular momentum, not ω</h2>
+  <p>Under no torque, Newton says <strong>angular momentum <math><mi>L</mi></math> is
+  conserved</strong> — exactly constant. Angular velocity <math><mi>ω</mi></math> is
+  <em>not</em>: as the body turns, the same <math><mi>L</mi></math> corresponds to a
+  different <math><mi>ω</mi></math>. So we store the constant thing, <math><mi>L</mi></math>,
+  and recover <math><mi>ω</mi></math> each step from
+  <math><mi>ω</mi><mo>=</mo><msubsup><mi>I</mi><mtext>world</mtext><mrow><mo>−</mo><mn>1</mn></mrow></msubsup><mi>L</mi></math>.</p>
+
+  <div class="callout warn">
+    <span class="label">A Chapter 5 lesson, again — in disguise</span>
+    <p>Our first attempt turned the orientation with a naive explicit step
+    (<math><mi>q</mi><mo>+</mo><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mi>ω</mi><mo>⊗</mo><mi>q</mi><mo>&#8201;</mo><mi>dt</mi></math>).
+    It kept <math><mi>L</mi></math> perfectly, yet the body <strong>gained energy</strong>
+    and spun faster and faster — the exact energy-leak from Chapter 5, now wearing a
+    rotational costume. The fix is the same in spirit: use a better step. We advance the
+    orientation with an <strong>exponential-map midpoint</strong> method — sample
+    <math><mi>ω</mi></math> at the middle of the step and rotate by the exact angle
+    <math><mo>|</mo><mi>ω</mi><mo>|</mo><mo>&#8201;</mo><mi>dt</mi></math>. Energy holds
+    steady, and free rotation finally behaves like the real thing.</p>
+  </div>
+
+  <pre><code class="cpp">// ω = I⁻¹_world · L, sampled at the midpoint for stability (see rigidbody.hpp)
+const Vec3 omegaStart = invInertiaWorld() * angularMomentum;
+const Quat qMid = normalize(spin(omegaStart, dt * 0.5f) * orientation);
+const Vec3 omegaMid = invInertiaWorldFor(qMid) * angularMomentum;
+orientation = normalize(spin(omegaMid, dt) * orientation);   // exact rotation by |ω|·dt</code></pre>
+
+  <h2>The payoff: the Dzhanibekov effect</h2>
+  <p>Every body has three principal axes. Spin it about the one with the
+  <em>smallest</em> moment of inertia, or the <em>largest</em>, and it spins
+  serenely. Spin it about the one in the <em>middle</em> and it can’t hold still:
+  the tiniest wobble grows until the body flips completely over — then flips back,
+  over and over. This is the <strong>intermediate-axis theorem</strong>, made famous by
+  cosmonaut Vladimir Dzhanibekov filming a wingnut doing it on the space station (it’s
+  also called the tennis-racket theorem — toss a racket and try to catch it the same way
+  up).</p>
+  <div class="callout intuition">
+    <span class="label">Why it flips</span>
+    Two quantities are fixed for a free spin: angular momentum <math><mi>L</mi></math>
+    and kinetic energy. Those two constraints carve out a path the spin must follow. For
+    the smallest and largest axes that path is a tiny loop around the axis — stable. For
+    the intermediate axis the path is a huge loop that swings all the way around to the
+    opposite pole and back — so the body turns right over. Our simulation reproduces it
+    only because it conserves <em>both</em> <math><mi>L</mi></math> (exactly) and energy
+    (very nearly) — which is why the integrator above mattered so much.
+  </div>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch11_rigidbody      # 1 Dzhanibekov · 2 three axes · 3 force at a point</code></pre>
+  <p>Scene <kbd>1</kbd> spins a T-handle about its intermediate axis — watch the coral
+  cap flip from one side to the other, on repeat. The HUD shows <math><mo>|</mo><mi>L</mi><mo>|</mo></math>
+  holding rock-steady while <math><mo>|</mo><mi>ω</mi><mo>|</mo></math> wanders: that
+  contrast <em>is</em> the effect. Scene <kbd>2</kbd> spins three handles, one per
+  principal axis — only the middle one misbehaves. Scene <kbd>3</kbd> fires a thruster
+  off-centre so you can see torque = <math><mi>r</mi><mo>×</mo><mi>F</mi></math> both push
+  and spin.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>In scene <kbd>2</kbd>, orbit so you’re looking down the row. The left (min-axis)
+      and right (max-axis) handles keep their orientation; only the middle one tumbles.
+      Same object, same speed — only the chosen axis differs.</li>
+    <li>Watch the HUD in scene <kbd>1</kbd> across a flip. <math><mo>|</mo><mi>L</mi><mo>|</mo></math>
+      never budges. If you have an older build where energy leaked, you’d instead see
+      <math><mo>|</mo><mi>ω</mi><mo>|</mo></math> climb without bound — the bug that
+      taught us to use the midpoint step.</li>
+    <li>In scene <kbd>3</kbd>, note it keeps drifting after the thruster stops: no
+      friction here, so momentum (linear and angular) is conserved and it coasts forever.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>Rotation mirrors linear motion: <strong>torque</strong> ↔ force, <strong>inertia
+      tensor</strong> ↔ mass, <strong>angular momentum</strong> ↔ momentum.</li>
+    <li>Torque <math><mi>τ</mi><mo>=</mo><mi>r</mi><mo>×</mo><mi>F</mi></math>: off-centre
+      forces spin a body.</li>
+    <li>Store the conserved quantity <math><mi>L</mi></math>; derive
+      <math><mi>ω</mi><mo>=</mo><msup><mi>I</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup><mi>L</mi></math>.
+      Integrate orientation carefully or energy leaks (Chapter 5 rides again).</li>
+    <li>The <strong>Dzhanibekov / intermediate-axis</strong> flip falls out for free from
+      conserving both <math><mi>L</mi></math> and energy.</li>
+  </ul>
+
+  <div class="callout intuition">
+    <span class="label">End of Part III</span>
+    Bodies can now move and spin correctly. But they still pass straight through one
+    another — nothing has bumped into anything yet. Part IV is all about
+    <em>detecting</em> that contact: bounding boxes and broadphase, the separating-axis
+    test, and the elegant GJK algorithm. Then Part V makes the collisions actually push
+    back.
+  </div>
+</article>
+</body>
+</html>

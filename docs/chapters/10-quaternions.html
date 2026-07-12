@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 10 · Rotation &amp; Quaternions — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="10">
+<article>
+  <span class="eyebrow">Part III · Rigid Bodies · Chapter 10</span>
+  <h1>Rotation &amp; Quaternions</h1>
+  <p class="lead">Position was easy — three numbers. Orientation is famously not.
+  The obvious choice, three angles, has a trap called gimbal lock that has crashed
+  real aircraft and spacecraft. Quaternions are the fix: four numbers that rotate
+  smoothly, never jam, and don’t drift. Let’s see why we need them and how they work.</p>
+
+  <h2>Goal</h2>
+  <p>Understand gimbal lock, then quaternions — how they store a rotation, rotate a
+  vector, compose, and update from an angular velocity. Code:
+  <code>common/math/quat.hpp</code>; demo: <code>chapters/10-quaternions/main.cpp</code>.</p>
+
+  <h2>The trap: Euler angles and gimbal lock</h2>
+  <p>The intuitive way to describe an orientation is three angles: <strong>yaw</strong>
+  (turn left/right), <strong>pitch</strong> (nose up/down), and <strong>roll</strong>
+  (tilt). Apply them one after another and you can reach any orientation. So what goes
+  wrong?</p>
+
+  <div class="callout warn">
+    <span class="label">Gimbal lock</span>
+    When pitch reaches 90° — nose straight up — the yaw axis and the roll axis line up
+    and point the same way. Now turning the yaw knob and turning the roll knob do the
+    <em>exact same thing</em>. You’ve lost a degree of freedom: there’s a direction you
+    simply cannot rotate anymore without first pitching back down. That’s
+    <strong>gimbal lock</strong>, and no amount of cleverness with three angles removes
+    it — it’s built into the representation.
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 640 200" role="img" aria-label="Three axes, free versus gimbal-locked">
+      <defs>
+        <marker id="gl" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="context-stroke"/></marker>
+      </defs>
+      <!-- free -->
+      <text x="150" y="24" text-anchor="middle" font-size="13" fill="var(--d-stroke)">free: 3 independent axes</text>
+      <g stroke-width="3">
+        <line x1="150" y1="120" x2="150" y2="55" stroke="var(--d-e)"/>
+        <line x1="150" y1="120" x2="235" y2="140" stroke="var(--d-a)"/>
+        <line x1="150" y1="120" x2="80"  y2="150" stroke="var(--d-c)"/>
+      </g>
+      <text x="150" y="50" font-size="11" fill="var(--d-e)">yaw</text>
+      <text x="240" y="145" font-size="11" fill="var(--d-a)">pitch</text>
+      <text x="55" y="160" font-size="11" fill="var(--d-c)">roll</text>
+
+      <!-- locked -->
+      <text x="470" y="24" text-anchor="middle" font-size="13" fill="var(--d-stroke)">pitch = 90°: yaw &amp; roll collapse</text>
+      <g stroke-width="3">
+        <line x1="470" y1="120" x2="470" y2="55" stroke="var(--d-e)"/>
+        <line x1="470" y1="120" x2="470" y2="60" stroke="var(--d-c)" stroke-dasharray="4 3"/>
+        <line x1="470" y1="120" x2="555" y2="140" stroke="var(--d-a)"/>
+      </g>
+      <text x="482" y="52" font-size="11" fill="var(--d-c)">yaw = roll!</text>
+      <text x="560" y="145" font-size="11" fill="var(--d-a)">pitch</text>
+    </svg>
+    <figcaption>Left: the three rotation axes are independent. Right: at pitch 90° the
+    yaw and roll axes coincide — two of your three controls now do the same thing.</figcaption>
+  </figure>
+
+  <h2>A better mental model: axis + angle</h2>
+  <p>Here’s a fact that untangles everything (Euler’s rotation theorem): <em>any</em>
+  orientation, however complicated, is a single rotation by some angle about some
+  single axis. Not three sequential turns — one. That “axis and angle” picture is the
+  honest description of a rotation, and it’s exactly what a quaternion encodes.</p>
+
+  <h2>Quaternions: four numbers, no lock</h2>
+  <p>A <strong>quaternion</strong> stores that axis-and-angle rotation as four numbers.
+  For a rotation of angle <math><mi>θ</mi></math> about a unit axis
+  <math><mi>a</mi></math>:</p>
+  <div class="eq">
+    <math display="block"><mrow>
+      <mi>q</mi><mo>=</mo><mo>(</mo>
+      <mi>cos</mi><mfrac><mi>θ</mi><mn>2</mn></mfrac><mo>,</mo>
+      <mspace width="4px"/><mi>a</mi><mo>&#8201;</mo><mi>sin</mi><mfrac><mi>θ</mi><mn>2</mn></mfrac>
+      <mo>)</mo>
+    </mrow></math>
+  </div>
+  <div class="callout intuition">
+    <span class="label">Why the half-angle?</span>
+    The <math><mi>θ</mi><mo>/</mo><mn>2</mn></math> looks bizarre at first. It comes
+    from <em>how</em> a quaternion rotates a vector: it multiplies from both sides,
+    <math><mi>q</mi><mi>v</mi><msup><mi>q</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup></math>
+    (a “sandwich”). Applying the rotation twice-over like that doubles the angle, so to
+    end up rotating by <math><mi>θ</mi></math> you store <math><mi>θ</mi><mo>/</mo><mn>2</mn></math>.
+    You almost never build one by hand — you call <code>Quat::fromAxisAngle(axis, angle)</code>
+    and let it do the trig.
+  </div>
+
+  <p>The four numbers are stored <code>(w, x, y, z)</code> with <code>w</code> the scalar
+  part, matching the notation <math><mi>q</mi><mo>=</mo><mi>w</mi><mo>+</mo><mi>x</mi><mi>i</mi><mo>+</mo><mi>y</mi><mi>j</mi><mo>+</mo><mi>z</mi><mi>k</mi></math>.
+  A <em>unit</em> quaternion (length 1) represents a pure rotation; we
+  <strong>normalize</strong> (rescale to length 1) after operations that might nudge it
+  off, which is far cheaper than the equivalent fix for a matrix.</p>
+
+  <h2>The three things we do with them</h2>
+  <h3>Rotate a vector</h3>
+  <p>Apply the rotation with the sandwich product
+  <math><msup><mi>v</mi><mo>′</mo></msup><mo>=</mo><mi>q</mi><mi>v</mi><msup><mi>q</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup></math>.
+  Our <code>rotate()</code> uses the standard optimised form (two cross products) but the
+  meaning is identical.</p>
+
+  <h3>Compose rotations</h3>
+  <p>Multiplying two quaternions <strong>chains</strong> their rotations, just like
+  matrices — and, just like matrices, order matters and reads right-to-left:
+  <math><mi>a</mi><mi>b</mi></math> means “do <math><mi>b</mi></math>, then
+  <math><mi>a</mi></math>.” This is the non-commutative heart of 3D rotation.</p>
+
+  <h3>Spin over time</h3>
+  <p>Given an angular velocity <math><mi>ω</mi></math> (its direction is the spin axis,
+  its length the spin rate), the orientation changes by</p>
+  <div class="eq">
+    <math display="block"><mrow>
+      <mfrac><mrow><mi>d</mi><mi>q</mi></mrow><mrow><mi>d</mi><mi>t</mi></mrow></mfrac>
+      <mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>&#8201;</mo><mi>ω</mi><mo>&#8855;</mo><mi>q</mi>
+    </mrow></math>
+  </div>
+  <p>— the rotational cousin of “position += velocity · dt”. This is the line that makes
+  a tumbling body actually turn, and it’s the bridge into Chapter 11.</p>
+
+  <h3>Interpolate smoothly (slerp)</h3>
+  <p><strong>Slerp</strong> — “spherical linear interpolation” — blends between two
+  orientations along the shortest arc at a constant rate. It’s the right way to ease a
+  camera from one pose to another, and something you simply cannot do by averaging
+  matrices or angles.</p>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch10_quaternions    # 1 Euler/gimbal lock · 2 quaternion spin · 3 slerp</code></pre>
+  <p>Scene <kbd>1</kbd> drives a little ship with Euler angles while pitch sweeps toward
+  ±90°; watch the red roll axis swing up to meet the green yaw axis, and the HUD announce
+  the lock. Scene <kbd>2</kbd> spins the same ship with a quaternion — it tumbles through
+  every orientation forever without a hitch. Scene <kbd>3</kbd> slerps between two poses.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>In scene <kbd>1</kbd>, pause (<kbd>Space</kbd>) right when the HUD says GIMBAL
+      LOCK and orbit around: the red and green axes are the same line. That’s the lost
+      degree of freedom, frozen for you to inspect.</li>
+    <li>Let scene <kbd>2</kbd> run for a long time. A matrix-based version would slowly
+      shear from accumulated rounding error; the renormalised quaternion stays a perfect
+      rotation.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>Three Euler angles suffer <strong>gimbal lock</strong>: at pitch 90° two axes
+      collapse and you lose a degree of freedom.</li>
+    <li>Any rotation is really <strong>one</strong> turn about <strong>one</strong> axis
+      — which a <strong>quaternion</strong> stores as four numbers (the half-angle falls
+      out of the sandwich product).</li>
+    <li>Quaternions rotate vectors, compose (right-to-left), integrate from
+      <math><mi>ω</mi></math>, and <strong>slerp</strong> — all without locking or
+      drifting.</li>
+  </ul>
+</article>
+</body>
+</html>

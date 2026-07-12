@@ -47,3 +47,13 @@ inline jargon glosses across the index and all five chapters).
 Built Part II (Particles & Forces): the `physics/` engine layer (particle, force
 generators, distance constraints), chapters 6–9 (fountain, springs, ropes, cloth),
 unit tests, and docs with a new interactive damping widget.
+
+## 2026-07-12 — Milestone 3
+
+> Okay, work on the next milestone.
+
+Built Part III (Rigid Bodies): `Mat3` + inertia tensors + a `RigidBody` with
+angular-momentum-conserving, energy-stable integration; chapters 10–11 (gimbal
+lock vs quaternions; the self-flipping Dzhanibekov T-handle); unit tests
+(including the flip); and docs. Fixed a rotational energy-leak in the first
+integrator with an exponential-map midpoint step.
