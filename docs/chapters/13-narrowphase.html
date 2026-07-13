@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 13 · Narrowphase: Spheres &amp; Planes — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="13">
+<article>
+  <span class="eyebrow">Part IV · Collision Detection · Chapter 13</span>
+  <h1>Narrowphase: Spheres &amp; Planes</h1>
+  <p class="lead">Broadphase said “these two might touch.” Now we answer exactly: do they,
+  and if so, <em>where</em>, <em>which way</em>, and <em>how deep</em>? Those three
+  answers — a point, a normal, and a penetration depth — form a <strong>contact</strong>,
+  the single most important data structure in a physics engine.</p>
+
+  <h2>Goal</h2>
+  <p>Define the contact, and generate one for the easy shapes: sphere–sphere, sphere–plane,
+  and sphere–box. Engine: <code>physics/contact.hpp</code>,
+  <code>physics/narrowphase.hpp</code>. Demo: <code>chapters/13-narrowphase/main.cpp</code>.</p>
+
+  <h2>The contact</h2>
+  <p>Every narrowphase test produces the same three things:</p>
+  <ul>
+    <li>the contact <strong>point</strong> — roughly where they touch,</li>
+    <li>the contact <strong>normal</strong> — a unit vector saying which direction to push
+      to separate them,</li>
+    <li>the <strong>penetration</strong> depth — how far they currently overlap.</li>
+  </ul>
+  <div class="callout tip">
+    <span class="label">A convention worth fixing once</span>
+    Sign bugs in collision code are miserable to track down, so we pick one rule and never
+    break it: <strong>the normal points from B toward A</strong> — the direction you’d shove
+    body A to pull the pair apart. Every test in this part obeys it, and the Part V solver
+    can then trust it blindly.
+  </div>
+
+  <h2>Sphere vs sphere</h2>
+  <p>The friendliest case in all of collision detection. Two spheres touch when the distance
+  between their centres is less than the sum of their radii:</p>
+  <div class="eq">
+    <math display="block"><mrow>
+      <mo>|</mo><msub><mi>c</mi><mi>A</mi></msub><mo>−</mo><msub><mi>c</mi><mi>B</mi></msub><mo>|</mo>
+      <mo>&lt;</mo><msub><mi>r</mi><mi>A</mi></msub><mo>+</mo><msub><mi>r</mi><mi>B</mi></msub>
+    </mrow></math>
+  </div>
+  <p>The normal is just the direction between the centres; the penetration is however much
+  the radii overlap. Three lines of code, and you can already build a ball pit.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 560 170" role="img" aria-label="Two overlapping spheres and their contact">
+      <defs><marker id="np-n" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--d-b)"/></marker></defs>
+      <circle cx="220" cy="90" r="70" fill="var(--d-a)" opacity="0.18" stroke="var(--d-a)"/>
+      <circle cx="330" cy="90" r="55" fill="var(--d-d)" opacity="0.18" stroke="var(--d-d)"/>
+      <circle cx="220" cy="90" r="3" fill="var(--d-a)"/><text x="205" y="88" font-size="11" fill="var(--d-a)">A</text>
+      <circle cx="330" cy="90" r="3" fill="var(--d-d)"/><text x="336" y="88" font-size="11" fill="var(--d-d)">B</text>
+      <line x1="220" y1="90" x2="330" y2="90" stroke="var(--d-muted)" stroke-width="1" stroke-dasharray="3 3"/>
+      <circle cx="280" cy="90" r="4" fill="var(--d-c)"/><text x="268" y="120" font-size="11" fill="var(--d-c)">contact point</text>
+      <line x1="300" y1="90" x2="245" y2="90" stroke="var(--d-b)" stroke-width="3" marker-end="url(#np-n)"/>
+      <text x="255" y="78" font-size="11" fill="var(--d-b)">normal (B→A)</text>
+    </svg>
+    <figcaption>The overlap of the radii is the penetration; the centre-to-centre direction
+    is the normal.</figcaption>
+  </figure>
+
+  <h2>Sphere vs plane</h2>
+  <p>A plane is <math><mo>{</mo><mi>x</mi><mo>:</mo><mi>n</mi><mo>·</mo><mi>x</mi><mo>=</mo><mi>d</mi><mo>}</mo></math>
+  — every point whose dot with the unit normal <math><mi>n</mi></math> equals the offset
+  <math><mi>d</mi></math>. The signed distance of the sphere’s centre from the plane is
+  <math><mi>n</mi><mo>·</mo><mi>c</mi><mo>−</mo><mi>d</mi></math>; if that’s less than the
+  radius, they touch, and the normal is simply the plane’s normal. This one test, pointed
+  inward on five planes, is all it takes to build a box that catches falling balls.</p>
+
+  <h2>Sphere vs box</h2>
+  <p>The trick: find the closest point on the box to the sphere’s centre by <em>clamping</em>
+  the centre (in the box’s local frame) to the box’s extents. If that closest point is within
+  a radius, they touch. (If the centre is <em>inside</em> the box, we push it out through the
+  nearest face instead.) The same clamp-to-the-box idea reappears constantly in collision code.</p>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch13_narrowphase    # 1 box · 2 more balls · 3 + a static obstacle</code></pre>
+  <p>Balls rain into an open container. Broadphase (Chapter 12) narrows the sphere–sphere
+  pairs; the tests above turn survivors into contacts, drawn as a coral dot at the point and
+  an amber arrow along the normal.</p>
+
+  <div class="callout warn">
+    <span class="label">This is detection, not response</span>
+    To keep the pile watchable the demo does the crudest possible fix — shove overlapping
+    balls apart and cancel the velocity heading into the surface. That is <em>not</em> a real
+    solver: there’s no bounciness, no friction, no stable stacking, and no spin. Making
+    contacts push back <em>properly</em> — with restitution, friction, and rotation — is the
+    whole of Part V. Here, the point is simply that we can find the contacts.
+  </div>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>Orbit under the pile and watch the amber normals: on the floor they point straight
+      up; between two balls they point along the line joining the centres. The normal always
+      says “this way out.”</li>
+    <li>Scene <kbd>3</kbd> adds a big static sphere. Balls detect contact against it via the
+      same sphere–sphere test — an immovable body is just one with infinite mass.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>A <strong>contact</strong> is a point + a normal + a penetration depth — the output of
+      all narrowphase, the input to all response.</li>
+    <li>Fix the normal convention once (here, <strong>B → A</strong>) and never break it.</li>
+    <li>Sphere tests are cheap: distance-vs-radii, signed distance to a plane, or clamp-to-box.</li>
+  </ul>
+</article>
+</body>
+</html>

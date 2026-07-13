@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 14 · SAT &amp; Manifolds — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="14">
+<article>
+  <span class="eyebrow">Part IV · Collision Detection · Chapter 14</span>
+  <h1>Narrowphase II: SAT &amp; Manifolds</h1>
+  <p class="lead">Spheres were easy. Two <em>oriented boxes</em> are the first genuinely
+  tricky case — and the Separating-Axis Theorem cracks it with a beautifully simple idea:
+  if two convex shapes are apart, there’s some direction along which their shadows don’t
+  overlap. Find that direction, or prove it doesn’t exist.</p>
+
+  <h2>Goal</h2>
+  <p>Understand SAT, use it to get a contact normal for two boxes, and clip their faces into
+  a multi-point <em>manifold</em>. Engine: <code>physics/sat.hpp</code>. Demo:
+  <code>chapters/14-sat/main.cpp</code>.</p>
+
+  <h2>The idea: look for a gap in some shadow</h2>
+  <div class="callout intuition">
+    <span class="label">Intuition</span>
+    Shine a light on two shapes and look at their shadows on a wall. If you can find <em>any</em>
+    angle of light where the two shadows have a gap between them, the shapes can’t be touching —
+    that gap is a wall you could slide between them. The Separating-Axis Theorem promises that
+    for convex shapes, if such an angle exists at all, you only need to check a small, fixed set
+    of “candidate” directions to find it.
+  </div>
+
+  <p>Try it yourself. Spin the test axis; the bars are the two shapes’ shadows projected onto
+  it. Slide the shapes apart until you can find an axis with a gap:</p>
+
+  <div class="widget js-sat-widget">
+    <canvas></canvas>
+    <div class="controls">
+      <label>separation
+        <input class="sep" type="range" min="0" max="230" step="1" value="70">
+      </label>
+      <label>test axis
+        <input class="angle" type="range" min="0" max="180" step="1" value="0">
+      </label>
+      <span class="satresult" style="font-weight:600"></span>
+    </div>
+  </div>
+
+  <h2>Which axes to test</h2>
+  <p>For two boxes, the candidate directions are exactly fifteen:</p>
+  <ul>
+    <li>the <strong>3 face normals of box A</strong>,</li>
+    <li>the <strong>3 face normals of box B</strong>,</li>
+    <li>and the <strong>9 cross products</strong> of an edge from A with an edge from B (for
+      the awkward edge-on-edge cases).</li>
+  </ul>
+  <p>Project both boxes onto each axis and measure the overlap. If <em>any</em> axis shows a
+  gap, they’re apart — stop immediately. If <em>all fifteen</em> overlap, they’re colliding,
+  and the axis with the <strong>smallest</strong> overlap is the shallowest way out — that’s
+  the contact normal, and the overlap is the penetration depth.</p>
+
+  <div class="callout math">
+    <span class="label">Projecting a box onto an axis</span>
+    A box’s shadow on a unit axis <math><mi>L</mi></math> reaches out from its centre by
+    <math><msub><mi>h</mi><mn>0</mn></msub><mo>|</mo><msub><mi>a</mi><mn>0</mn></msub><mo>·</mo><mi>L</mi><mo>|</mo><mo>+</mo><msub><mi>h</mi><mn>1</mn></msub><mo>|</mo><msub><mi>a</mi><mn>1</mn></msub><mo>·</mo><mi>L</mi><mo>|</mo><mo>+</mo><msub><mi>h</mi><mn>2</mn></msub><mo>|</mo><msub><mi>a</mi><mn>2</mn></msub><mo>·</mo><mi>L</mi><mo>|</mo></math>
+    — each half-extent times how much its axis leans along <math><mi>L</mi></math>. The two
+    shadows overlap when the gap between the centres (measured along <math><mi>L</mi></math>) is
+    less than the sum of those reaches.
+  </div>
+
+  <h2>From a normal to a manifold</h2>
+  <p>A normal alone isn’t enough. Rest a box on the floor and push it down at a single point —
+  it topples. Real resting contact needs several points spread across the touching area: a
+  <strong>manifold</strong>. We build one by <strong>clipping</strong> the two faces that came
+  together.</p>
+  <div class="callout intuition">
+    <span class="label">Face clipping, in plain terms</span>
+    The box that owns the shallowest axis provides the <em>reference face</em>; the other box’s
+    most-facing face is the <em>incident face</em>. We trim the incident face against the sides
+    of the reference face — like using the reference face as a cookie cutter — and keep the
+    trimmed corners that lie below it. Those (up to four) points are the manifold.
+  </div>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch14_sat            # 1 slide-through · 2 stack · 3 tilted (edge-edge)</code></pre>
+  <p>Scene <kbd>1</kbd> slides one box through another; watch the coral manifold points and the
+  green SAT normal appear, slide, and flip to the shallowest axis. Scene <kbd>2</kbd> settles a
+  small stack (crude positional separation only — real stacking is Part V). Scene <kbd>3</kbd>
+  lowers a tilted box corner-first to show the edge-edge case, where the separating axis is a
+  cross product of edges rather than a face normal.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>In the widget, set the separation so the shapes just barely overlap, then sweep the
+      axis. Every axis reports overlap — that’s SAT confirming a collision. Now slide them fully
+      apart: somewhere in the sweep a gap appears, and one separating axis is enough to prove
+      they’re clear.</li>
+    <li>In scene <kbd>1</kbd>, count the manifold points as the boxes slide: four when faces are
+      flush, fewer as they slide off the edge. That count is exactly why stacking needs clipping,
+      not a single point.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li><strong>SAT</strong>: two convex shapes are apart iff some axis separates their
+      projections. For boxes, 15 axes suffice.</li>
+    <li>The <strong>smallest-overlap axis</strong> is the contact normal; its overlap is the
+      penetration depth.</li>
+    <li>Clip the touching faces into a <strong>manifold</strong> of several points — what stable
+      resting contact needs.</li>
+  </ul>
+</article>
+</body>
+</html>

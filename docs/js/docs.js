@@ -22,11 +22,15 @@
     { part: "Part II · Particles & Forces", num: "09", slug: "09-cloth",     title: "Cloth" },
     { part: "Part III · Rigid Bodies", num: "10", slug: "10-quaternions", title: "Rotation & Quaternions" },
     { part: "Part III · Rigid Bodies", num: "11", slug: "11-rigidbody",   title: "Rigid-Body Dynamics" },
+    { part: "Part IV · Collision Detection", num: "12", slug: "12-broadphase",  title: "Broadphase" },
+    { part: "Part IV · Collision Detection", num: "13", slug: "13-narrowphase", title: "Narrowphase: Spheres & Planes" },
+    { part: "Part IV · Collision Detection", num: "14", slug: "14-sat",         title: "SAT & Manifolds" },
+    { part: "Part IV · Collision Detection", num: "15", slug: "15-gjk",         title: "GJK & EPA" },
   ];
 
   // Later parts, shown greyed-out on the roadmap so the arc is visible.
   const UPCOMING = [
-    "Part IV · Collision Detection", "Part V · Collision Response",
+    "Part V · Collision Response",
     "Part VI · Constraints & Joints", "Part VII · Beyond Rigid Bodies",
   ];
 
@@ -344,6 +348,73 @@
     draw();
   }
 
+  // --- Interactive widget: SAT projection -----------------------------------
+  // Two 2D shapes and a test axis you can spin. It draws each shape's "shadow"
+  // (projection) on the axis; if you find one axis where the shadows don't
+  // overlap, the shapes are apart — the Separating-Axis Theorem in miniature.
+  function initSatWidget(root) {
+    const canvas = root.querySelector("canvas");
+    const ctx = canvas.getContext("2d");
+    const sep = root.querySelector(".sep");
+    const ang = root.querySelector(".angle");
+    const out = root.querySelector(".satresult");
+    function cssVar(n) { return getComputedStyle(document.body).getPropertyValue(n).trim(); }
+
+    function draw() {
+      const W = canvas.clientWidth || 680, H = 280;
+      const dpr = window.devicePixelRatio || 1;
+      if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+        canvas.width = W * dpr; canvas.height = H * dpr; canvas.style.height = H + "px";
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      const cx = W / 2, cy = H / 2 - 6;
+
+      const s = parseFloat(sep.value);
+      const th = parseFloat(ang.value) * Math.PI / 180;
+      const ax = [Math.cos(th), Math.sin(th)], pr = [-ax[1], ax[0]];
+
+      const rect = (ox, oy, hw, hh) => [[ox-hw,oy-hh],[ox+hw,oy-hh],[ox+hw,oy+hh],[ox-hw,oy+hh]];
+      const A = rect(cx - 55, cy, 52, 40);
+      const B = rect(cx - 55 + s, cy, 42, 54);
+
+      const drawPoly = (p, col) => {
+        ctx.strokeStyle = col; ctx.fillStyle = col + "22"; ctx.lineWidth = 2;
+        ctx.beginPath(); p.forEach((v, i) => i ? ctx.lineTo(v[0], v[1]) : ctx.moveTo(v[0], v[1]));
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      };
+      // The test axis, drawn across the canvas through the centre.
+      ctx.strokeStyle = cssVar("--border"); ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx - ax[0]*400, cy - ax[1]*400); ctx.lineTo(cx + ax[0]*400, cy + ax[1]*400); ctx.stroke();
+
+      drawPoly(A, "#29c8be"); drawPoly(B, "#f0a84a");
+
+      const project = (p) => { let mn = 1e9, mx = -1e9;
+        for (const v of p) { const d = (v[0]-cx)*ax[0] + (v[1]-cy)*ax[1]; mn = Math.min(mn,d); mx = Math.max(mx,d); }
+        return [mn, mx]; };
+      const pa = project(A), pb = project(B);
+
+      // Draw each shadow as a thick segment offset to one side of the axis.
+      const bar = (iv, col, off) => {
+        ctx.strokeStyle = col; ctx.lineWidth = 5;
+        const a = [cx + ax[0]*iv[0] + pr[0]*off, cy + ax[1]*iv[0] + pr[1]*off];
+        const b = [cx + ax[0]*iv[1] + pr[0]*off, cy + ax[1]*iv[1] + pr[1]*off];
+        ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
+      };
+      bar(pa, "#29c8be", 92); bar(pb, "#f0a84a", 108);
+
+      const overlap = pa[0] <= pb[1] && pb[0] <= pa[1];
+      out.textContent = overlap ? "shadows OVERLAP on this axis — keep testing other axes"
+                                : "GAP on this axis → a separating axis! The shapes are APART.";
+      out.style.color = overlap ? "#f0645f" : "#7bd38a";
+    }
+    sep.addEventListener("input", draw);
+    ang.addEventListener("input", draw);
+    window.addEventListener("resize", draw);
+    draw();
+  }
+
   // --- Wire everything up ----------------------------------------------------
   document.addEventListener("DOMContentLoaded", function () {
     buildTopbar();
@@ -370,6 +441,7 @@
     highlightAll();
     document.querySelectorAll(".js-integrator-widget").forEach(initIntegratorWidget);
     document.querySelectorAll(".js-damping-widget").forEach(initDampingWidget);
+    document.querySelectorAll(".js-sat-widget").forEach(initSatWidget);
   });
 
   // Expose the upcoming-parts list for the home page to render.

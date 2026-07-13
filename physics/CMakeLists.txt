@@ -6,7 +6,11 @@
 #  the only translation unit so far.
 # ----------------------------------------------------------------------------
 add_library(p3d_physics
-    forces.cpp)
+    forces.cpp
+    broadphase.cpp
+    narrowphase.cpp
+    sat.cpp
+    gjk.cpp)
 
 target_include_directories(p3d_physics PUBLIC ${CMAKE_SOURCE_DIR})
 target_link_libraries(p3d_physics PRIVATE project_warnings)

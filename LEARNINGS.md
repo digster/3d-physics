@@ -44,6 +44,29 @@ Hard-won, project-specific gotchas. Read before you trip over the same wire.
   formula collapses to `m/3·(h_i² + h_j²)`, not the textbook `m/12·(s_i² + s_j²)`
   with full side lengths `s = 2h`. Easy to be off by 4× if you mix them.
 
+- **EPA diverges if the polytope winding is inconsistent.** Two bugs, one symptom
+  (hundreds of faces, never converging): (1) the *initial tetrahedron* face set
+  must be consistently wound — every shared edge must appear in opposite
+  directions on its two faces. The set `{0,1,2},{0,3,1},{0,2,3},{1,3,2}` works;
+  `{0,1,2},{0,1,3},{0,2,3},{1,2,3}` does NOT (edge 0-1 is `0→1` on two faces). (2)
+  When orienting a face's normal outward, flip only the **normal vector**, never
+  `std::swap` the vertex indices — swapping breaks the winding the horizon-edge
+  cancellation relies on. See `physics/gjk.cpp::epa`.
+
+- **GJK's terminating simplex can be degenerate for boxes.** Flat faces make the
+  support function return the same vertex for several directions, so the 4 GJK
+  points may be coincident/coplanar — not a valid EPA start. Fix: "blow up" the
+  simplex to a real tetrahedron with fresh support points before EPA
+  (`buildTetrahedron`), and reject if the volume is still ~0.
+
+- **EPA's outward normal points A→B, not B→A.** With the Minkowski difference
+  built as `support_A(d) − support_B(−d)` (i.e. A⊖B), EPA's outward face normal is
+  the direction to push *B*; negate it to match the engine's B→A `Contact`
+  convention. Verified against SAT on the same box pose.
+
+- **The Dzhanibekov flip is a body-frame signal** (repeat of the Part III lesson,
+  relevant when testing collision demos too): don't assert on world-frame ω.
+
 ## Rendering (software pipeline)
 
 - **Winding drives everything.** Mesh triangles are wound counter-clockwise as

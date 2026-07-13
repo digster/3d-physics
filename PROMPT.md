@@ -57,3 +57,14 @@ angular-momentum-conserving, energy-stable integration; chapters 10–11 (gimbal
 lock vs quaternions; the self-flipping Dzhanibekov T-handle); unit tests
 (including the flip); and docs. Fixed a rotational energy-leak in the first
 integrator with an exponential-map midpoint step.
+
+## 2026-07-12 — Milestone 4
+
+> Work on the next part.
+
+Built Part IV (Collision Detection): AABBs + three broadphases (brute /
+sweep-and-prune / uniform grid), narrowphase (sphere/plane/box), SAT box-box with
+a face-clipping manifold, and GJK+EPA for arbitrary convex shapes; chapters 12–15;
+tests (broadphase equality, GJK/EPA vs SAT); and docs with an interactive SAT
+projection widget. Debugged an EPA divergence down to inconsistent polytope
+winding.

@@ -51,15 +51,20 @@
         <text x="314" y="92" text-anchor="middle" font-size="12" fill="var(--d-stroke)" font-weight="600">Rigid bodies</text>
         <text x="314" y="108" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">Ch 10–11</text>
       </g>
+      <g>
+        <circle cx="441" cy="52" r="15" fill="var(--d-accent)"/>
+        <text x="441" y="57" text-anchor="middle" font-size="12" font-weight="700" fill="#06231f">IV</text>
+        <text x="441" y="92" text-anchor="middle" font-size="12" fill="var(--d-stroke)" font-weight="600">Collision</text>
+        <text x="441" y="108" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">Ch 12–15</text>
+      </g>
       <!-- upcoming -->
       <g fill="var(--d-muted)">
-        <g><circle cx="441" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="441" y="56" text-anchor="middle" font-size="11">IV</text><text x="441" y="92" text-anchor="middle" font-size="11">Collision</text></g>
         <g><circle cx="568" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="568" y="56" text-anchor="middle" font-size="11">V</text><text x="568" y="92" text-anchor="middle" font-size="11">Response</text></g>
         <g><circle cx="695" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="695" y="56" text-anchor="middle" font-size="11">VI</text><text x="695" y="92" text-anchor="middle" font-size="11">Joints</text></g>
         <g><circle cx="820" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="820" y="56" text-anchor="middle" font-size="11">VII</text><text x="820" y="92" text-anchor="middle" font-size="11">Soft bodies</text></g>
       </g>
     </svg>
-    <figcaption>The road ahead. This release covers <strong>Parts I–III</strong>; later parts land part by part.</figcaption>
+    <figcaption>The road ahead. This release covers <strong>Parts I–IV</strong>; later parts land part by part.</figcaption>
   </figure>
 
   <h2>Start here — Part I: Foundations</h2>
@@ -140,6 +145,35 @@
       <div class="part">Chapter 11</div>
       <div class="ttl">Rigid-Body Dynamics</div>
       <div class="desc">Torque, the inertia tensor, and the eerie Dzhanibekov flip — a body that tumbles itself over.</div>
+    </a>
+  </div>
+
+  <h2>Part IV: Collision Detection</h2>
+  <p>Bodies can move and spin, but they still pass through each other. This part
+  teaches the engine to <em>find</em> contacts — a funnel from cheap-and-approximate
+  to exact: throw away far-apart pairs, then compute the precise contact point,
+  normal, and depth. (Making them push back is Part V.)</p>
+
+  <div class="cards">
+    <a class="card" href="chapters/12-broadphase.html">
+      <div class="part">Chapter 12</div>
+      <div class="ttl">Broadphase</div>
+      <div class="desc">Turn the O(N²) all-pairs problem into near-O(N) with AABBs, a sweep, and a spatial grid.</div>
+    </a>
+    <a class="card" href="chapters/13-narrowphase.html">
+      <div class="part">Chapter 13</div>
+      <div class="ttl">Narrowphase: Spheres &amp; Planes</div>
+      <div class="desc">Turn a candidate pair into an exact contact — point, normal, and penetration depth.</div>
+    </a>
+    <a class="card" href="chapters/14-sat.html">
+      <div class="part">Chapter 14</div>
+      <div class="ttl">SAT &amp; Manifolds</div>
+      <div class="desc">Collide oriented boxes with the Separating-Axis Theorem; clip faces into a multi-point manifold.</div>
+    </a>
+    <a class="card" href="chapters/15-gjk.html">
+      <div class="part">Chapter 15</div>
+      <div class="ttl">GJK &amp; EPA</div>
+      <div class="desc">One algorithm for any convex shape, via support functions and the Minkowski difference.</div>
     </a>
   </div>
 

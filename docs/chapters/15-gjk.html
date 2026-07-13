@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 15 · GJK &amp; EPA — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="15">
+<article>
+  <span class="eyebrow">Part IV · Collision Detection · Chapter 15</span>
+  <h1>GJK &amp; EPA</h1>
+  <p class="lead">SAT was great for boxes, but its axis list is different for every shape. GJK
+  is the general answer: one algorithm that tests <em>any</em> two convex shapes, knowing
+  nothing about them except how to answer one question — “what’s your farthest point in this
+  direction?” It’s one of the most elegant ideas in all of collision detection.</p>
+
+  <h2>Goal</h2>
+  <p>Understand support functions and the Minkowski difference, how GJK hunts for the origin,
+  and how EPA recovers penetration depth. Engine: <code>physics/gjk.hpp</code>. Demo:
+  <code>chapters/15-gjk/main.cpp</code>.</p>
+
+  <h2>The only thing GJK needs: a support function</h2>
+  <p>A <strong>support function</strong> takes a direction and returns the shape’s farthest
+  point that way. For a convex hull it’s trivial — the vertex with the biggest dot product.
+  That single function is <em>all</em> GJK knows about a shape, which is why the same code
+  handles a cube, a sphere, a capsule, or any convex blob.</p>
+
+  <h2>The clever trick: the Minkowski difference</h2>
+  <div class="callout intuition">
+    <span class="label">Intuition</span>
+    Take every point of shape A, subtract every point of shape B, and collect the results into
+    a new shape — the <strong>Minkowski difference</strong> <math><mi>A</mi><mo>⊖</mo><mi>B</mi></math>.
+    Here’s the magic: A and B overlap <em>exactly</em> when this new shape contains the
+    <strong>origin</strong>. Why? If A and B share a point <math><mi>p</mi></math>, then
+    <math><mi>p</mi><mo>−</mo><mi>p</mi><mo>=</mo><mn>0</mn></math> is in the difference. So the
+    whole collision question — “do two shapes overlap?” — becomes one tidy question: “does this
+    one shape contain the origin?”
+  </div>
+  <figure class="diagram">
+    <svg viewBox="0 0 620 210" role="img" aria-label="Minkowski difference contains the origin when shapes overlap">
+      <rect x="60"  y="60" width="90" height="90" rx="4" fill="var(--d-a)" opacity="0.25" stroke="var(--d-a)"/>
+      <text x="105" y="50" text-anchor="middle" font-size="12" fill="var(--d-a)">A</text>
+      <rect x="120" y="95" width="80" height="80" rx="4" fill="var(--d-d)" opacity="0.25" stroke="var(--d-d)"/>
+      <text x="160" y="190" text-anchor="middle" font-size="12" fill="var(--d-d)">B</text>
+      <text x="230" y="120" font-size="24" fill="var(--d-muted)">→</text>
+      <polygon points="340,70 460,60 500,120 440,170 330,150" fill="var(--d-accent)" opacity="0.2" stroke="var(--d-accent)"/>
+      <text x="415" y="45" text-anchor="middle" font-size="12" fill="var(--d-accent)">A ⊖ B</text>
+      <circle cx="415" cy="115" r="5" fill="var(--d-c)"/>
+      <text x="425" y="118" font-size="12" fill="var(--d-c)">origin inside → overlap</text>
+    </svg>
+    <figcaption>Overlap of A and B ⟺ the Minkowski difference contains the origin. GJK never
+    builds the whole difference — it samples it with the support function.</figcaption>
+  </figure>
+
+  <h2>GJK: hunting the origin with a simplex</h2>
+  <p>GJK looks for the origin inside <math><mi>A</mi><mo>⊖</mo><mi>B</mi></math> without ever
+  building the whole thing. It keeps a <strong>simplex</strong> — the simplest shape in each
+  dimension: a point, then a line, a triangle, a tetrahedron — made of support points. Each
+  step it asks “which part of my simplex is closest to the origin?”, throws away the rest, and
+  fetches a new support point in the direction of the origin. Either it wraps a tetrahedron
+  around the origin (they overlap!) or a new support point fails to reach past the origin
+  (there’s a gap — they’re apart).</p>
+
+  <div class="callout tip">
+    <span class="label">Why a “simplex”?</span>
+    A simplex is just the minimal shape you need to pin down a region: 2 points make a line
+    segment, 3 a triangle, 4 a tetrahedron. In 3D, a tetrahedron is the smallest thing that can
+    <em>enclose</em> a point — so if GJK ever builds one around the origin, the origin is
+    trapped inside, and the shapes overlap.
+  </div>
+
+  <h2>EPA: from “yes” to “how much”</h2>
+  <p>GJK only answers yes or no. When it’s yes, the solver still needs a normal and a depth —
+  so the <strong>Expanding Polytope Algorithm</strong> takes over from GJK’s final
+  tetrahedron. It repeatedly finds the polytope face closest to the origin, pushes a fresh
+  support point outward through it, and re-stitches the surface — growing the polytope until it
+  hugs the boundary of the Minkowski difference. The closest face at the end gives the
+  penetration <strong>normal</strong> and <strong>depth</strong>: the shortest shove that
+  separates the shapes.</p>
+
+  <div class="callout warn">
+    <span class="label">A real bug we hit</span>
+    EPA is fiddly. Our first version diverged into thousands of faces because the starting
+    tetrahedron’s triangles weren’t <em>consistently wound</em> — a shared edge appeared the
+    same direction on two faces, so the “which faces can the new point see?” bookkeeping fell
+    apart. The fix (a consistently-wound face set, and flipping only the normal <em>vector</em>
+    rather than the vertex order) is the kind of detail that separates a working EPA from an
+    infinite loop. See <code>physics/gjk.cpp</code> and <code>LEARNINGS.md</code>.
+  </div>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch15_gjk            # 1 cube+octahedron · 2 two octahedra · 3 tetra+cube</code></pre>
+  <p>One shape drifts through another. GJK decides overlap; when they intersect, both turn
+  coral and EPA draws the green push-out vector (normal × depth). Notice the code never
+  special-cases “cube” or “octahedron” — it only ever calls the support function.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>Compare with Chapter 14: GJK/EPA gets the same normal and depth on boxes that SAT does
+      (the unit tests check this), but it also handles the octahedron and tetrahedron that SAT
+      had no axis list for.</li>
+    <li>Pause right as the shapes separate and watch the HUD flip from “OVERLAPPING” to
+      “separate” — that’s GJK failing to trap the origin.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>GJK needs only a <strong>support function</strong>, so it works for any convex shape.</li>
+    <li>Two shapes overlap ⟺ their <strong>Minkowski difference</strong> contains the origin.</li>
+    <li><strong>GJK</strong> hunts the origin with a growing simplex; <strong>EPA</strong> then
+      expands a polytope to recover the penetration normal and depth.</li>
+  </ul>
+
+  <div class="callout intuition">
+    <span class="label">End of Part IV</span>
+    The engine can now <em>find</em> every contact — near-pairs, exact points, normals, and
+    depths, for spheres, boxes, and arbitrary convex shapes. But detected contacts still do
+    nothing; bodies interpenetrate and freeze. Part V is the payoff: the impulse solver that
+    turns a contact into a real bounce, makes friction grip, and lets a pile of boxes stack and
+    fall asleep.
+  </div>
+</article>
+</body>
+</html>

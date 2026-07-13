@@ -29,3 +29,9 @@ add_chapter(ch09_cloth       09-cloth       physics)
 # Part III — Rigid Bodies
 add_chapter(ch10_quaternions 10-quaternions physics)
 add_chapter(ch11_rigidbody   11-rigidbody   physics)
+
+# Part IV — Collision Detection
+add_chapter(ch12_broadphase  12-broadphase  physics)
+add_chapter(ch13_narrowphase 13-narrowphase physics)
+add_chapter(ch14_sat         14-sat         physics)
+add_chapter(ch15_gjk         15-gjk         physics)

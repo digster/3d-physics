@@ -164,11 +164,36 @@ checking that the intermediate-axis spin axis reverses while the extreme axes st
 put, all with bounded kinetic energy. Chapter 10 introduces the orientation math
 itself (gimbal lock vs. quaternions, slerp) using only the existing `quat.hpp`.
 
+### Part IV — Collision Detection (implemented)
+
+Detection only — it finds contacts; making them push back is Part V. It is a
+funnel from cheap-and-approximate to exact, all producing the same `Contact`.
+
+| File | Responsibility | Introduced in |
+|------|----------------|---------------|
+| `physics/aabb.hpp` | axis-aligned bounding boxes + overlap; world AABB of a sphere / oriented box | Ch 12 |
+| `physics/contact.hpp` | `Contact` = point + normal + penetration. **Normal points B → A** (the push-A-out direction) — one convention, fixed everywhere | Ch 13 |
+| `physics/broadphase.hpp/.cpp` | candidate-pair finding: brute O(N²), sweep-and-prune, uniform grid (all return the same set — the tests check it) | Ch 12 |
+| `physics/narrowphase.hpp/.cpp` | exact contacts for sphere-sphere / sphere-plane / sphere-box / box-plane | Ch 13 |
+| `physics/sat.hpp/.cpp` | oriented box-box via the Separating-Axis Theorem (15 axes), with a face-clipping **manifold** (up to 4 points) | Ch 14 |
+| `physics/gjk.hpp/.cpp` | GJK intersection + EPA penetration for **any** convex vertex set, via support functions on the Minkowski difference | Ch 15 |
+
+**Design notes.**
+- The pipeline is broadphase → narrowphase. A chapter builds AABBs, runs a
+  broadphase to get candidate pairs, then runs the exact test on each.
+- SAT gives a multi-point manifold (needed for stable stacking in Part V); GJK/EPA
+  gives one contact but works for arbitrary convex shapes. They agree on the
+  penetration depth for boxes (cross-checked in `tests/test_collision.cpp`).
+- **EPA is winding-sensitive**: the starting tetrahedron's faces must be
+  *consistently wound* and expansion must flip only the normal *vector*, never the
+  vertex order, or the polytope diverges. See `LEARNINGS.md`.
+- The Part IV demos do only crude positional separation to stay watchable; they do
+  **not** implement restitution, friction, or rotation from contacts (that is Part V).
+
 ### Planned (later parts)
 
-Colliders, broadphase, SAT, GJK/EPA (IV) → contact manifolds + sequential-impulse
-solver + sleeping (V) → joints (VI) → XPBD soft bodies (VII). Filled in as those
-parts land.
+Contact manifolds + sequential-impulse solver + sleeping (V) → joints (VI) → XPBD
+soft bodies (VII). Filled in as those parts land.
 
 ## `docs/` — the tutorial (no build step)
 

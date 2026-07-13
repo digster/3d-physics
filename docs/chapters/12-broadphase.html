@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 12 · Broadphase — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="12">
+<article>
+  <span class="eyebrow">Part IV · Collision Detection · Chapter 12</span>
+  <h1>Broadphase</h1>
+  <p class="lead">Before we can make things bounce, we have to know what’s touching
+  what. Checking every pair of bodies is hopeless for a big scene — it grows with the
+  <em>square</em> of the count. Broadphase is the cheap first pass that throws away the
+  pairs that are obviously nowhere near each other, so the expensive exact tests only
+  run on a handful of real candidates.</p>
+
+  <h2>Goal</h2>
+  <p>Understand why all-pairs testing doesn’t scale, and three ways to avoid it using
+  loose bounding boxes. Engine: <code>physics/aabb.hpp</code>,
+  <code>physics/broadphase.hpp</code>. Demo: <code>chapters/12-broadphase/main.cpp</code>.</p>
+
+  <h2>The O(N²) problem</h2>
+  <p>With <math><mi>N</mi></math> bodies there are
+  <math><mfrac><mrow><mi>N</mi><mo>(</mo><mi>N</mi><mo>−</mo><mn>1</mn><mo>)</mo></mrow><mn>2</mn></mfrac></math>
+  possible pairs. That’s fine for 10 bodies (45 pairs) but brutal for 1000 (about half a
+  million) — <em>every frame</em>. We say this scales as
+  <math><mi>O</mi><mo>(</mo><msup><mi>N</mi><mn>2</mn></msup><mo>)</mo></math> (“order N
+  squared”: double the bodies, quadruple the work). Most of those pairs are a body on the
+  left of the room and one on the right — never touching. Broadphase’s job is to skip them
+  almost for free.</p>
+
+  <h2>The tool: axis-aligned bounding boxes</h2>
+  <div class="callout intuition">
+    <span class="label">Intuition</span>
+    An <strong>AABB</strong> (axis-aligned bounding box) is the smallest world-axis-aligned
+    box that fully wraps a shape — just two corners, a min and a max. Two AABBs can only
+    overlap if their shadows overlap on <em>all three</em> axes at once, which is a handful
+    of number comparisons. If even one axis has a gap, the boxes (and the shapes inside
+    them) are apart. So we test cheap AABBs first, and only bother with the real shape test
+    when their boxes overlap.
+  </div>
+
+  <h2>Three ways to find the pairs</h2>
+  <h3>1 · Brute force — the honest baseline</h3>
+  <p>Test all pairs’ AABBs directly. It’s <math><mi>O</mi><mo>(</mo><msup><mi>N</mi><mn>2</mn></msup><mo>)</mo></math>
+  and correct — we keep it as the yardstick the clever methods must match.</p>
+
+  <h3>2 · Sweep-and-prune</h3>
+  <p>Sort the boxes by their minimum <math><mi>x</mi></math>. Then sweep a line left to
+  right: keep an “active” set of boxes whose <math><mi>x</mi></math>-span you’re still
+  inside, and only compare against those. Once a box’s <math><mi>x</mi></math> ends, it can
+  never overlap anything further right, so drop it. Bodies far apart in
+  <math><mi>x</mi></math> are never even compared.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 640 150" role="img" aria-label="Sweep and prune along x">
+      <line x1="30" y1="120" x2="610" y2="120" stroke="var(--d-grid)" stroke-width="1"/>
+      <g stroke-width="9" stroke-linecap="round">
+        <line x1="60"  y1="45" x2="180" y2="45" stroke="var(--d-a)"/>
+        <line x1="120" y1="68" x2="250" y2="68" stroke="var(--d-b)"/>
+        <line x1="300" y1="45" x2="420" y2="45" stroke="var(--d-d)"/>
+        <line x1="470" y1="68" x2="580" y2="68" stroke="var(--d-e)"/>
+      </g>
+      <line x1="200" y1="20" x2="200" y2="135" stroke="var(--d-accent)" stroke-width="2" stroke-dasharray="4 3"/>
+      <text x="205" y="32" font-size="12" fill="var(--d-accent)">sweep line</text>
+      <text x="120" y="105" font-size="11" fill="var(--d-muted)">these two x-overlap → compare</text>
+      <text x="470" y="105" font-size="11" fill="var(--d-muted)">far right → never compared</text>
+    </svg>
+    <figcaption>Only boxes whose x-spans overlap the sweep line are ever tested against
+    each other.</figcaption>
+  </figure>
+
+  <h3>3 · Uniform grid</h3>
+  <p>Chop space into a grid of cells and drop each box into the cells it covers. Two boxes
+  can only touch if they share a cell, so we only compare within-cell boxes. It’s wonderfully
+  simple and fast when bodies are roughly the same size.</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 320 200" role="img" aria-label="Uniform grid buckets">
+      <g stroke="var(--d-grid)" stroke-width="1">
+        <line x1="40" y1="30" x2="280" y2="30"/><line x1="40" y1="90" x2="280" y2="90"/>
+        <line x1="40" y1="150" x2="280" y2="150"/>
+        <line x1="40" y1="30" x2="40" y2="150"/><line x1="120" y1="30" x2="120" y2="150"/>
+        <line x1="200" y1="30" x2="200" y2="150"/><line x1="280" y1="30" x2="280" y2="150"/>
+      </g>
+      <circle cx="75" cy="60" r="14" fill="var(--d-a)" opacity="0.8"/>
+      <circle cx="92" cy="70" r="14" fill="var(--d-b)" opacity="0.8"/>
+      <circle cx="240" cy="120" r="14" fill="var(--d-d)" opacity="0.8"/>
+      <text x="70" y="180" font-size="11" fill="var(--d-muted)">same cell → compare</text>
+      <text x="215" y="180" font-size="11" fill="var(--d-muted)">alone → skip</text>
+    </svg>
+    <figcaption>Only bodies sharing a cell become candidate pairs.</figcaption>
+  </figure>
+
+  <h2>Same answer, far less work</h2>
+  <p>The important guarantee: all three return the <em>same</em> set of candidate pairs — a
+  faster method that disagreed with brute force would be a silent bug (the unit tests check
+  exactly this on a random cloud). The clever ones just reach that answer with a fraction of
+  the comparisons.</p>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch12_broadphase     # 1 uniform grid · 2 sweep & prune · 3 brute force</code></pre>
+  <p>A cloud of 140 spheres drifts in a box. Amber links join candidate pairs; coral marks
+  the ones actually overlapping. Read the HUD: the broadphase flags only a few dozen
+  candidates out of ~9700 possible pairs — and finds the exact same overlaps brute force
+  does.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>Switch between scenes <kbd>1</kbd>–<kbd>3</kbd>. The candidate count and the coral
+      overlaps are identical every frame — the methods agree, they just work harder or less.</li>
+    <li>In the code, drop the grid’s <code>cellSize</code> very small or very large. Too small
+      wastes memory on empty cells; too large dumps everything into one cell and degrades back
+      toward <math><mi>O</mi><mo>(</mo><msup><mi>N</mi><mn>2</mn></msup><mo>)</mo></math>. The
+      sweet spot is roughly a typical body’s size.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>All-pairs testing is <math><mi>O</mi><mo>(</mo><msup><mi>N</mi><mn>2</mn></msup><mo>)</mo></math> and doesn’t scale.</li>
+    <li><strong>AABBs</strong> overlap only if they overlap on all three axes — a few cheap comparisons.</li>
+    <li><strong>Sweep-and-prune</strong> and the <strong>uniform grid</strong> both skip far-apart pairs; all methods agree on the result.</li>
+    <li>Broadphase hands a short candidate list to the exact narrowphase (next chapter).</li>
+  </ul>
+</article>
+</body>
+</html>
