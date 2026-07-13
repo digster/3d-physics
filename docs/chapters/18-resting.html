@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 18 · Resting Contact &amp; Sleeping — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="18">
+<article>
+  <span class="eyebrow">Part V · Collision Response · Chapter 18</span>
+  <h1>Resting Contact &amp; Sleeping</h1>
+  <p class="lead">A box sitting on the ground looks like it's doing nothing. In fact it's
+  being held up, every single frame, by a fresh volley of impulses fighting gravity. This
+  final chapter makes that quiet — and then stops doing the work entirely once a body has
+  clearly gone still, so a pile of hundreds can rest for free.</p>
+
+  <h2>Goal</h2>
+  <p>Understand resting contact, and add sleeping (with a nod to islands) so settled bodies
+  cost nothing and stop their last jitter. Engine: <code>physics/world.hpp</code>. Demo:
+  <code>chapters/18-resting/main.cpp</code>.</p>
+
+  <h2>Resting contact is not "no contact"</h2>
+  <div class="callout intuition">
+    <span class="label">Intuition</span>
+    Gravity pulls the box down a tiny bit every step; the contact solver pushes back with a
+    normal impulse that exactly cancels it. The box appears still, but it's really a
+    balance of two opposing streams of impulses — like standing still on a trampoline. This
+    is why the machinery from the last two chapters is enough: a "resting" contact is just a
+    contact whose closing speed the solver keeps driving to zero, frame after frame. Warm
+    starting matters most here — re-using yesterday's supporting impulse is what keeps the
+    balance smooth instead of buzzing.
+  </div>
+
+  <h2>The jitter problem, and slop</h2>
+  <p>Perfectly resolving penetration every frame makes bodies twitch: they get pushed out,
+  fall back in, get pushed out again. We calm this two ways: a small <strong>slop</strong>
+  (we don't bother correcting overlaps shallower than a few millimetres) and a gentle
+  Baumgarte factor (we correct only a <em>fraction</em> of the remaining depth each frame).
+  Together they trade a sliver of visible overlap for a lot of stillness.</p>
+
+  <h2>Sleeping: stop simulating what isn't moving</h2>
+  <p>Even calmed, a settled body keeps consuming solver time forever. The fix is simple and
+  powerful: if a body's linear and angular speeds stay below small thresholds for long
+  enough, put it to <strong>sleep</strong> — skip integrating and solving it until something
+  wakes it. A settled pile then costs almost nothing, and its final micro-motion vanishes.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 560 140" role="img" aria-label="Sleeping state machine">
+      <defs><marker id="sl" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="var(--d-accent2)"/></marker></defs>
+      <rect x="70" y="45" width="150" height="50" rx="12" fill="var(--d-b)" opacity="0.25" stroke="var(--d-b)"/>
+      <text x="145" y="68" text-anchor="middle" font-size="14" fill="var(--d-stroke)" font-weight="600">AWAKE</text>
+      <text x="145" y="84" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">simulated every step</text>
+      <rect x="340" y="45" width="150" height="50" rx="12" fill="var(--d-d)" opacity="0.25" stroke="var(--d-d)"/>
+      <text x="415" y="68" text-anchor="middle" font-size="14" fill="var(--d-stroke)" font-weight="600">ASLEEP</text>
+      <text x="415" y="84" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">skipped entirely</text>
+      <path d="M220 58 H340" stroke="var(--d-accent2)" stroke-width="1.6" marker-end="url(#sl)"/>
+      <text x="280" y="50" text-anchor="middle" font-size="10.5" fill="var(--d-accent2)">still for a while</text>
+      <path d="M340 82 H220" stroke="var(--d-accent2)" stroke-width="1.6" marker-end="url(#sl)"/>
+      <text x="280" y="110" text-anchor="middle" font-size="10.5" fill="var(--d-accent2)">touched / disturbed</text>
+    </svg>
+    <figcaption>A body sleeps after staying nearly still long enough, and wakes the moment
+    something disturbs it.</figcaption>
+  </figure>
+
+  <h2>Islands: sleep and wake together</h2>
+  <div class="callout tip">
+    <span class="label">Why touching bodies share a fate</span>
+    A body resting on a sleeping one must not sink through it, and a whole stack should nod
+    off — and later wake — as a unit. Bodies connected by contacts form an <strong>island</strong>.
+    Our rule is simple: a body in contact with an awake body is kept awake, so waking one
+    member ripples through the island over the next few frames. (A production engine groups
+    islands explicitly with union-find; the contact-propagation version is enough here.)
+  </div>
+
+  <p>The check is just a speed test with a timer:</p>
+  <pre><code class="cpp">const Real lin = length(rbs[i].linearVelocity);
+const Real ang = length(rbs[i].angularVelocity());
+if (lin &lt; linearSleepSpeed &amp;&amp; ang &lt; angularSleepSpeed) {
+    sleepTimer[i] += dt;
+    if (sleepTimer[i] &gt; timeToSleep) {           // still for long enough → sleep
+        awake[i] = 0;
+        rbs[i].linearVelocity = {}; rbs[i].angularMomentum = {};   // freeze it cleanly
+    }
+} else { sleepTimer[i] = 0; awake[i] = 1; }        // moving → stay/return awake</code></pre>
+
+  <h2>The whole engine, in one step</h2>
+  <p>With this, <code>World::step</code> is the entire course in six lines: gravity,
+  broadphase (Ch 12), narrowphase (Ch 13–15), warm-started impulse solve (Ch 16–17),
+  integrate positions (Ch 11), and sleep. Everything you've built, running together.</p>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch18_resting        # 1 pile settles &amp; sleeps · 2 drop re-wakes · 3 sleeping OFF</code></pre>
+  <p>Bodies rain into a bin. Awake ones glow amber; as they settle they turn dim blue and
+  the HUD's awake-count falls toward zero. In scene <kbd>2</kbd>, a fresh body dropped onto
+  the sleeping pile wakes just the island it lands on.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>Press <kbd>S</kbd> (or use scene <kbd>3</kbd>) to disable sleeping. The settled pile
+      never fully stops — a permanent, faint shimmer of micro-jitter. Turn it back on and
+      the pile goes truly still. That shimmer is the cost sleeping removes.</li>
+    <li>In scene <kbd>2</kbd>, watch which bodies re-wake when a new one lands: only the ones
+      it touches, and their neighbours a frame later — the island waking up.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>A <strong>resting contact</strong> is an active balance of gravity and normal
+      impulses, kept smooth by warm starting.</li>
+    <li><strong>Slop</strong> and a gentle Baumgarte factor trade a little overlap for a lot
+      of stillness.</li>
+    <li><strong>Sleeping</strong> skips still bodies entirely; contact keeps an
+      <strong>island</strong> awake and asleep together.</li>
+  </ul>
+
+  <div class="callout intuition">
+    <span class="label">End of Part V — you built a physics engine</span>
+    Step back and look at what runs in that one <code>step()</code>: vectors, matrices, and
+    quaternions; a software renderer; stable integration; particles, springs, and cloth;
+    rigid bodies that spin correctly; broadphase, SAT, and GJK finding contacts; and an
+    impulse solver with friction, stacking, and sleeping resolving them. That's a real,
+    if compact, rigid-body engine — written from nothing. Part VI connects bodies with
+    joints (hinges, ragdolls); Part VII bends them into soft, jiggling shapes.
+  </div>
+</article>
+</body>
+</html>

@@ -38,7 +38,7 @@ engine with joints and soft bodies:
 | VI · Constraints & Joints| 19  | connect bodies: chains, hinges, ragdolls |
 | VII · Beyond Rigid Bodies| 20  | XPBD soft bodies (jello) |
 
-*(Parts I–IV are implemented; later parts land part by part.)*
+*(Parts I–V are implemented; later parts land part by part.)*
 
 ---
 
@@ -71,6 +71,8 @@ All demo binaries land in `build/bin/`.
 ./build/bin/ch11_rigidbody       # the self-flipping Dzhanibekov T-handle (Part III)
 ./build/bin/ch12_broadphase      # 140 bodies: broadphase candidate pairs (Part IV)
 ./build/bin/ch15_gjk             # GJK/EPA on arbitrary convex shapes (Part IV)
+./build/bin/ch17_friction        # box stacks & a pyramid: the impulse solver (Part V)
+./build/bin/ch18_resting         # a pile settles and falls asleep (Part V)
 ```
 
 Every 3D demo shares the same controls:

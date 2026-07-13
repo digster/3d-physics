@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 16 · Impulses &amp; Restitution — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="16">
+<article>
+  <span class="eyebrow">Part V · Collision Response · Chapter 16</span>
+  <h1>Impulses &amp; Restitution</h1>
+  <p class="lead">A contact tells us two bodies overlap. Now we make them do
+  something about it. The trick is the <em>impulse</em> — a sudden kick to velocity
+  that can stop a collision in a single step, where a gentle force never could. And
+  by choosing how much bounce that kick returns, we get everything from a dead thud
+  to a superball.</p>
+
+  <h2>Goal</h2>
+  <p>Understand impulses and restitution, and how one impulse at a contact changes
+  both a body's motion and its spin. This is our first use of the full
+  <code>World</code> (<code>physics/world.hpp</code>) and the solver
+  (<code>physics/solver.hpp</code>). Demo: <code>chapters/16-impulses/main.cpp</code>.</p>
+
+  <h2>Why a force isn't enough</h2>
+  <div class="callout intuition">
+    <span class="label">Intuition</span>
+    A ball moving down at 5&nbsp;m/s hits the floor. In one 1/120-second step, a
+    <em>force</em> can only nudge its velocity a little — so next step it's still
+    moving down, now <em>inside</em> the floor. To reverse the velocity <em>this
+    step</em> you'd need an enormous force acting for an instant. That's exactly what
+    an <strong>impulse</strong> is: a force integrated over time,
+    <math><mi>J</mi><mo>=</mo><mi>F</mi><mo>&#8201;</mo><mi>Δt</mi></math>, treated as a
+    single instantaneous kick. An impulse changes momentum directly,
+    <math><mi>J</mi><mo>=</mo><mi>Δp</mi><mo>=</mo><mi>m</mi><mo>&#8201;</mo><mi>Δv</mi></math>,
+    so it can stop or reverse a collision in one go.
+  </div>
+
+  <h2>The normal impulse</h2>
+  <p>At a contact we care about the <strong>relative velocity along the normal</strong>
+  — how fast the two surfaces are closing. Call it
+  <math><msub><mi>v</mi><mi>n</mi></msub></math>. If they're approaching
+  (<math><msub><mi>v</mi><mi>n</mi></msub><mo>&lt;</mo><mn>0</mn></math>), we apply just
+  enough impulse along the normal to cancel that closing speed — and, if the surface is
+  bouncy, to send some of it back:</p>
+  <div class="eq">
+    <math display="block"><mrow>
+      <msubsup><mi>v</mi><mi>n</mi><mo>′</mo></msubsup>
+      <mo>=</mo><mo>−</mo><mi>e</mi><mo>&#8201;</mo><msub><mi>v</mi><mi>n</mi></msub>
+    </mrow></math>
+  </div>
+  <p>where <math><mi>e</mi></math> is the <strong>restitution</strong> (0 to 1). The
+  impulse magnitude that achieves this depends on the bodies' masses <em>and</em> their
+  resistance to spinning at that point (the "effective mass" — a unit impulse there
+  actually changes the relative velocity by less if it also has to twist the bodies).
+  The solver computes it; the shape of the answer is "how much velocity change we want,
+  divided by how hard it is to move here."</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 560 190" role="img" aria-label="A ball bounces off the floor via a normal impulse">
+      <defs><marker id="im-v" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--d-a)"/></marker>
+        <marker id="im-j" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--d-c)"/></marker></defs>
+      <line x1="60" y1="150" x2="500" y2="150" stroke="var(--d-grid)" stroke-width="2"/>
+      <circle cx="200" cy="118" r="26" fill="var(--d-a)" opacity="0.3" stroke="var(--d-a)"/>
+      <line x1="200" y1="100" x2="200" y2="145" stroke="var(--d-a)" stroke-width="3" marker-end="url(#im-v)"/>
+      <text x="208" y="120" font-size="12" fill="var(--d-a)">v (incoming)</text>
+      <line x1="360" y1="145" x2="360" y2="70" stroke="var(--d-c)" stroke-width="3" marker-end="url(#im-j)"/>
+      <text x="368" y="105" font-size="12" fill="var(--d-c)">impulse J (up)</text>
+      <text x="300" y="175" font-size="11" fill="var(--d-muted)">the floor can only push, never pull → J ≥ 0</text>
+    </svg>
+    <figcaption>The contact applies an upward impulse to cancel (and partly reverse) the
+    downward velocity. A contact can only push apart, so the normal impulse is clamped
+    to be non-negative.</figcaption>
+  </figure>
+
+  <h2>Restitution, made visible</h2>
+  <p>Restitution is the fraction of closing speed handed back. Since height scales with
+  the square of speed, each bounce reaches <math><msup><mi>e</mi><mn>2</mn></msup></math>
+  of the previous height. Drag the slider and watch the bounces decay:</p>
+
+  <div class="widget js-restitution-widget">
+    <canvas></canvas>
+    <div class="controls">
+      <label>restitution e
+        <input class="e" type="range" min="0" max="1" step="0.01" value="0.7">
+      </label>
+      <span class="eout" style="font-weight:600"></span>
+    </div>
+  </div>
+
+  <h2>One impulse, two effects</h2>
+  <p>Because a contact is usually <em>off-centre</em>, the impulse does double duty: it
+  changes the body's straight-line velocity <strong>and</strong> its spin — exactly the
+  <math><mi>r</mi><mo>×</mo><mi>J</mi></math> torque idea from Chapter 11, but delivered
+  instantly. That's why a box clipped at a corner tumbles. Our
+  <code>RigidBody::applyImpulse</code> is that whole idea in three lines:</p>
+  <pre><code class="cpp">void applyImpulse(const Vec3&amp; impulse, const Vec3&amp; worldPos) {
+    if (isStatic()) return;
+    linearVelocity  += impulse * invMass;                  // straight-line kick
+    angularMomentum += cross(worldPos - position, impulse);  // ...and the spin, r × J
+}</code></pre>
+
+  <h2>The solver's core</h2>
+  <p>The normal impulse, accumulated and clamped so a contact never pulls:</p>
+  <pre><code class="cpp">const Real vn = dot(A.velocityAtPoint(p) - B.velocityAtPoint(p), normal);
+Real dLambda = (velocityBias - vn) * normalMass;      // bias carries the restitution
+const Real old = normalImpulse;
+normalImpulse = std::max(0.0f, old + dLambda);        // clamp the TOTAL to ≥ 0
+dLambda = normalImpulse - old;
+A.applyImpulse(normal * dLambda, p);
+B.applyImpulse(-normal * dLambda, p);</code></pre>
+
+  <div class="callout tip">
+    <span class="label">Why clamp the accumulated total, not each step?</span>
+    A single iteration might want a negative correction (to undo an earlier over-push),
+    which is fine — as long as the <em>running total</em> of the normal impulse stays
+    non-negative. Clamping the accumulated value lets the solver freely adjust while
+    still guaranteeing the contact only ever pushed, never pulled.
+  </div>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch16_impulses       # 1 restitution row · 2 bouncy bin · 3 boxes</code></pre>
+  <p>Scene <kbd>1</kbd> drops four identical balls with restitution 0, 0.3, 0.6, and 0.9.
+  Same drop, wildly different bounces — the slider above, in the real engine.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>In the widget, set <math><mi>e</mi><mo>=</mo><mn>1</mn></math>: the ball bounces
+      back to its start height forever (no energy lost). Set <math><mi>e</mi><mo>=</mo><mn>0</mn></math>:
+      it sticks on first contact. Real materials live in between.</li>
+    <li>Scene <kbd>3</kbd> bounces boxes. Watch them pick up spin when they land on a
+      corner — one impulse, both effects.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>An <strong>impulse</strong> changes momentum instantly, so it can stop a collision
+      in one step where a force can't.</li>
+    <li>The normal impulse cancels the closing speed and returns a fraction
+      <math><mi>e</mi></math> (<strong>restitution</strong>) of it; it's clamped so a
+      contact only ever pushes.</li>
+    <li>An off-centre impulse changes velocity <em>and</em> spin
+      (<math><mi>r</mi><mo>×</mo><mi>J</mi></math>).</li>
+  </ul>
+</article>
+</body>
+</html>

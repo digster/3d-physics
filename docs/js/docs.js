@@ -26,11 +26,13 @@
     { part: "Part IV · Collision Detection", num: "13", slug: "13-narrowphase", title: "Narrowphase: Spheres & Planes" },
     { part: "Part IV · Collision Detection", num: "14", slug: "14-sat",         title: "SAT & Manifolds" },
     { part: "Part IV · Collision Detection", num: "15", slug: "15-gjk",         title: "GJK & EPA" },
+    { part: "Part V · Collision Response", num: "16", slug: "16-impulses", title: "Impulses & Restitution" },
+    { part: "Part V · Collision Response", num: "17", slug: "17-friction", title: "Friction & the Solver" },
+    { part: "Part V · Collision Response", num: "18", slug: "18-resting",  title: "Resting Contact & Sleeping" },
   ];
 
   // Later parts, shown greyed-out on the roadmap so the arc is visible.
   const UPCOMING = [
-    "Part V · Collision Response",
     "Part VI · Constraints & Joints", "Part VII · Beyond Rigid Bodies",
   ];
 
@@ -415,6 +417,76 @@
     draw();
   }
 
+  // --- Interactive widget: restitution --------------------------------------
+  // Plots the height-vs-time of a bouncing ball for a chosen restitution e.
+  // Each bounce reaches e² of the previous height, so the arcs shrink — the
+  // whole personality of "bounciness" in one picture.
+  function initRestitutionWidget(root) {
+    const canvas = root.querySelector("canvas");
+    const ctx = canvas.getContext("2d");
+    const slider = root.querySelector(".e");
+    const out = root.querySelector(".eout");
+    function cssVar(n) { return getComputedStyle(document.body).getPropertyValue(n).trim(); }
+
+    function draw() {
+      const e = parseFloat(slider.value);
+      out.textContent = "restitution e = " + e.toFixed(2) +
+                        "   ·   height kept each bounce = e² = " + (e * e).toFixed(2);
+
+      const W = canvas.clientWidth || 680, H = 260;
+      const dpr = window.devicePixelRatio || 1;
+      if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+        canvas.width = W * dpr; canvas.height = H * dpr; canvas.style.height = H + "px";
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      const padL = 30, padB = 26, padT = 14;
+
+      // Build the segments: an initial fall from height 1, then bounces of
+      // shrinking height. Time of each arc scales with sqrt(height).
+      const g = 2, h0 = 1;
+      const segs = [{ fall: true, dur: Math.sqrt(2 * h0 / g), h: h0 }];
+      for (let n = 1; n <= 9; n++) {
+        const h = h0 * Math.pow(e, 2 * n);
+        if (h < 0.004) break;
+        segs.push({ fall: false, dur: 2 * Math.sqrt(2 * h / g), h });
+      }
+      const total = segs.reduce((s, x) => s + x.dur, 0) * 1.02;
+
+      const X = (t) => padL + (t / total) * (W - padL - 8);
+      const Y = (y) => (H - padB) - y * (H - padB - padT);
+
+      // Ground line.
+      ctx.strokeStyle = cssVar("--border"); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(padL, Y(0)); ctx.lineTo(W - 8, Y(0)); ctx.stroke();
+      ctx.fillStyle = cssVar("--muted"); ctx.font = "11px system-ui";
+      ctx.fillText("height", 2, Y(1) + 4); ctx.fillText("time →", W - 54, Y(0) + 18);
+
+      // The trajectory.
+      ctx.strokeStyle = "#29c8be"; ctx.lineWidth = 2.5; ctx.beginPath();
+      let t = 0, first = true;
+      for (const s of segs) {
+        const N = 40;
+        for (let i = 0; i <= N; i++) {
+          const tau = (i / N) * s.dur;
+          let y;
+          if (s.fall) y = h0 - 0.5 * g * tau * tau;
+          else { const v = Math.sqrt(2 * g * s.h); y = v * tau - 0.5 * g * tau * tau; }
+          const px = X(t + tau), py = Y(Math.max(0, y));
+          first ? (ctx.moveTo(px, py), first = false) : ctx.lineTo(px, py);
+        }
+        t += s.dur;
+        // A faint peak marker for each bounce.
+        if (!s.fall) { ctx.save(); ctx.fillStyle = "#f0a84a";
+          ctx.beginPath(); ctx.arc(X(t - s.dur / 2), Y(s.h), 3, 0, 7); ctx.fill(); ctx.restore(); }
+      }
+      ctx.stroke();
+    }
+    slider.addEventListener("input", draw);
+    window.addEventListener("resize", draw);
+    draw();
+  }
+
   // --- Wire everything up ----------------------------------------------------
   document.addEventListener("DOMContentLoaded", function () {
     buildTopbar();
@@ -442,6 +514,7 @@
     document.querySelectorAll(".js-integrator-widget").forEach(initIntegratorWidget);
     document.querySelectorAll(".js-damping-widget").forEach(initDampingWidget);
     document.querySelectorAll(".js-sat-widget").forEach(initSatWidget);
+    document.querySelectorAll(".js-restitution-widget").forEach(initRestitutionWidget);
   });
 
   // Expose the upcoming-parts list for the home page to render.

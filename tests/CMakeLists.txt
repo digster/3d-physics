@@ -10,7 +10,8 @@ add_executable(p3d_tests
     test_integration.cpp
     test_physics.cpp
     test_rigidbody.cpp
-    test_collision.cpp)
+    test_collision.cpp
+    test_solver.cpp)
 
 target_include_directories(p3d_tests PRIVATE ${CMAKE_SOURCE_DIR})
 # test_physics.cpp exercises the force generators (forces.cpp), so it links the

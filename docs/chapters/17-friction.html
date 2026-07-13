@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 17 · Friction &amp; the Solver — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="17">
+<article>
+  <span class="eyebrow">Part V · Collision Response · Chapter 17</span>
+  <h1>Friction &amp; the Solver</h1>
+  <p class="lead">A bounce needs one impulse. A <em>stack</em> needs many, all pulling
+  against each other, plus friction to stop the whole thing squirting sideways. This
+  chapter adds the two ingredients that turn "bodies that bounce" into "bodies that pile
+  up and stay put": Coulomb friction, and iterating the solver.</p>
+
+  <h2>Goal</h2>
+  <p>Add friction with the Coulomb cone, understand why the solver must iterate, and see
+  what warm starting buys. Engine: <code>physics/solver.hpp</code>. Demo:
+  <code>chapters/17-friction/main.cpp</code>.</p>
+
+  <h2>Friction: a sideways impulse, up to a limit</h2>
+  <p>Where the normal impulse acts <em>along</em> the contact normal, friction acts
+  <em>across</em> it — in the tangent plane — opposing any sliding. But friction can't be
+  unlimited, or nothing would ever slide. The <strong>Coulomb</strong> model caps it: the
+  friction impulse can be at most <math><mi>μ</mi></math> times the normal impulse.</p>
+  <div class="eq">
+    <math display="block"><mrow>
+      <mo>|</mo><msub><mi>J</mi><mi>t</mi></msub><mo>|</mo>
+      <mo>≤</mo><mi>μ</mi><mo>&#8201;</mo><msub><mi>J</mi><mi>n</mi></msub>
+    </mrow></math>
+  </div>
+  <div class="callout intuition">
+    <span class="label">The friction cone</span>
+    Picture the total contact impulse as an arrow. The normal part points straight out of
+    the surface; friction tilts it sideways. Coulomb's law says the arrow must stay inside
+    a <strong>cone</strong> around the normal, with steepness set by
+    <math><mi>μ</mi></math>. Grip is free up to the cone's edge; ask for more sideways force
+    than the cone allows and the surfaces <em>slip</em> — the impulse is clamped to the
+    edge. A big <math><mi>μ</mi></math> is a wide, grippy cone (rubber); a small one is a
+    narrow, slippery cone (ice).
+  </div>
+  <figure class="diagram">
+    <svg viewBox="0 0 520 190" role="img" aria-label="The Coulomb friction cone">
+      <line x1="60" y1="150" x2="460" y2="150" stroke="var(--d-grid)" stroke-width="2"/>
+      <polygon points="260,150 170,40 350,40" fill="var(--d-accent)" opacity="0.12" stroke="var(--d-accent)" stroke-dasharray="4 3"/>
+      <line x1="260" y1="150" x2="260" y2="55" stroke="var(--d-b)" stroke-width="3"/>
+      <text x="266" y="90" font-size="12" fill="var(--d-b)">normal Jₙ</text>
+      <line x1="260" y1="150" x2="330" y2="70" stroke="var(--d-a)" stroke-width="3"/>
+      <text x="300" y="120" font-size="12" fill="var(--d-a)">total (inside cone → grips)</text>
+      <text x="150" y="30" font-size="11" fill="var(--d-accent)">cone half-angle = arctan μ</text>
+    </svg>
+    <figcaption>Total contact impulse must stay inside the friction cone. On the surface of
+    the cone, the contact is on the verge of slipping.</figcaption>
+  </figure>
+
+  <h2>Why the solver iterates</h2>
+  <p>Here's the catch with a stack: fixing the top contact changes the box below it, which
+  changes the one below <em>that</em>. One pass can't satisfy them all at once. So we do
+  what Chapter 8's rope did — <strong>iterate</strong>. Each pass fixes every contact's
+  velocity in turn, and the corrections ripple down the stack until they agree. This is
+  the <strong>sequential impulse</strong> method (really Gauss–Seidel iteration), and it's
+  why a few cheap passes can hold up a pyramid.</p>
+
+  <h2>Warm starting: a running head start</h2>
+  <div class="callout tip">
+    <span class="label">Warm starting</span>
+    A resting stack barely changes frame to frame, so the impulses it needed last frame are
+    almost exactly the ones it needs now. <strong>Warm starting</strong> re-applies last
+    frame's accumulated impulses as the starting guess, so the iteration begins already
+    near the answer instead of from zero. The difference is dramatic: a warm-started stack
+    is rock-solid at a handful of iterations; without it, the same stack visibly sags and
+    jitters. The demo lets you toggle it (key <kbd>F</kbd>) to feel it.
+  </div>
+
+  <p>The friction solve, clamped to the cone, looks like this (per tangent direction):</p>
+  <pre><code class="cpp">const Real maxFriction = friction * normalImpulse;     // the cone's current edge
+const Real vt = dot(A.velocityAtPoint(p) - B.velocityAtPoint(p), t);
+Real dLambda = -vt * tMass;
+const Real old = tangentImpulse;
+tangentImpulse = clamp(old + dLambda, -maxFriction, maxFriction);   // stay in the cone
+dLambda = tangentImpulse - old;
+A.applyImpulse(t * dLambda, p);
+B.applyImpulse(-t * dLambda, p);</code></pre>
+
+  <div class="callout warn">
+    <span class="label">Position correction, gently</span>
+    Solving velocities stops bodies approaching, but they may already overlap. We nudge
+    them apart with a little <em>Baumgarte</em> bias — a small separating velocity
+    proportional to how deep the overlap is, beyond a tolerance ("slop"). Too much and
+    stacks bounce and gain energy; we take the <em>max</em> of the restitution and Baumgarte
+    biases (not their sum) so position correction never inflates a real bounce.
+  </div>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch17_friction       # 1 tower · 2 pyramid · 3 friction ramp
+                                #  [ / ] iterations,  F toggles warm starting</code></pre>
+  <p>Scene <kbd>3</kbd> sits three boxes of different friction on a slope: the slippery one
+  (coral) slides off, the grippy one (teal) holds. Scenes <kbd>1</kbd> and <kbd>2</kbd> are
+  a tower and a pyramid — the payoff of iteration and warm starting.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>Press <kbd>[</kbd> to drop the solver to 1–2 iterations. The tower turns to jelly.
+      Press <kbd>]</kbd> to raise it and watch the stack firm up — you're literally tuning
+      how well the constraints get satisfied.</li>
+    <li>Press <kbd>F</kbd> to turn warm starting off. Even at high iterations the stack
+      softens and sinks; turn it back on and it snaps rigid. That's a great initial guess
+      doing the solver's job for it.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li><strong>Friction</strong> is a tangent impulse capped at
+      <math><mi>μ</mi><msub><mi>J</mi><mi>n</mi></msub></math> — the <strong>Coulomb cone</strong>; inside it grips, on it slips.</li>
+    <li>Stacks need the solver to <strong>iterate</strong> (sequential impulse) so corrections propagate.</li>
+    <li><strong>Warm starting</strong> re-uses last frame's impulses and is what makes stacks stable cheaply.</li>
+  </ul>
+</article>
+</body>
+</html>

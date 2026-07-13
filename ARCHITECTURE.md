@@ -190,10 +190,38 @@ funnel from cheap-and-approximate to exact, all producing the same `Contact`.
 - The Part IV demos do only crude positional separation to stay watchable; they do
   **not** implement restitution, friction, or rotation from contacts (that is Part V).
 
+### Part V — Collision Response (implemented)
+
+The climax: contacts (IV) acting on rigid bodies (III) via an impulse solver.
+
+| File | Responsibility | Introduced in |
+|------|----------------|---------------|
+| `physics/collider.hpp` | a shape (sphere/box) + material (restitution, friction) bound to a body; builds its AABB and inertia tensor | Ch 16 |
+| `physics/solver.hpp/.cpp` | the sequential-impulse solver: `ContactConstraint` (effective masses, tangent basis, bias), warm start, and one velocity pass (normal impulse clamped ≥0, friction clamped to the Coulomb cone) | Ch 16–17 |
+| `physics/world.hpp/.cpp` | **the whole engine assembled** — bodies + colliders + the full `step()`: gravity → broadphase → narrowphase dispatch → warm-started solve → integrate positions → sleeping, with a body-pair contact cache for warm starting | Ch 16–18 |
+
+`RigidBody` gained velocity-level operations for the solver: `applyImpulse`
+(linear + `r×J` angular), `velocityAtPoint`, and `integratePosition` (advance
+using solved velocities; the orientation update was factored into
+`advanceOrientation`, shared with the Ch 11 force-driven `integrate`).
+
+**Design notes.**
+- `World::step` is the entire course in six stages. Bodies are parallel arrays
+  (`rbs` / `colliders` / `awake` / `sleepTimer`) so the solver takes the rigid
+  bodies directly.
+- **Restitution vs. Baumgarte**: the normal bias is `max(restitution, baumgarte)`,
+  not their sum — summing lets position correction inject energy and a ball
+  rebounds higher than it fell (a bug we hit; see `LEARNINGS.md`).
+- **Warm starting** (re-applying last frame's per-contact impulses, matched by
+  body pair + point proximity) is what makes stacks stable at ~10 iterations.
+- **Sleeping**: a body still for `timeToSleep` seconds is frozen and skipped;
+  bodies in contact keep each other awake, so an "island" sleeps/wakes together.
+  Basic sequential impulse drifts slowly on tall stacks without sleeping — which
+  is exactly why sleeping (Ch 18) matters.
+
 ### Planned (later parts)
 
-Contact manifolds + sequential-impulse solver + sleeping (V) → joints (VI) → XPBD
-soft bodies (VII). Filled in as those parts land.
+Joints (VI) → XPBD soft bodies (VII). Filled in as those parts land.
 
 ## `docs/` — the tutorial (no build step)
 

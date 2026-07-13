@@ -92,31 +92,31 @@ struct RigidBody {
     }
     void clearAccumulators() { forceAccum = Vec3{}; torqueAccum = Vec3{}; }
 
-    // --- One step of motion ----------------------------------------------
+    // --- One step of force-driven motion (Chapter 11) --------------------
     void integrate(Real dt) {
         // Linear half: identical to a particle (semi-implicit Euler).
         if (!isStatic()) {
             linearVelocity += forceAccum * invMass * dt;
             position       += linearVelocity * dt;
         }
-
-        // Angular half. Torque changes the angular momentum L (which is otherwise
-        // conserved). Then we turn the orientation by the angular velocity ω,
-        // where ω = I⁻¹_world · L.
+        // Angular half. Torque changes the angular momentum L.
         angularMomentum += torqueAccum * dt;
+        advanceOrientation(dt);
+        clearAccumulators();
+    }
 
-        // We advance the orientation with an exponential-map MIDPOINT step, not a
-        // naive q += ½ωq·dt. Why: ω depends on the orientation (through I_world),
-        // so a first-order explicit step steadily injects energy — a tumbling
-        // body would spin ever faster instead of flipping. Sampling ω at the
-        // midpoint of the step (a second-order method) keeps energy nearly
-        // constant, so free rotation behaves like the real thing.
+    // Turn the orientation by the current angular velocity for time dt. We use an
+    // exponential-map MIDPOINT step, not a naive q += ½ωq·dt. Why: ω depends on
+    // the orientation (through I_world), so a first-order explicit step steadily
+    // injects energy — a tumbling body would spin ever faster instead of
+    // flipping. Sampling ω at the midpoint (a second-order method) keeps energy
+    // nearly constant, so free rotation behaves like the real thing.
+    void advanceOrientation(Real dt) {
+        if (isStatic()) return;
         const Vec3 omegaStart = invInertiaWorld() * angularMomentum;
         const Quat qMid = normalize(spin(omegaStart, dt * Real(0.5)) * orientation);
         const Vec3 omegaMid = invInertiaWorldFor(qMid) * angularMomentum;
         orientation = normalize(spin(omegaMid, dt) * orientation);
-
-        clearAccumulators();
     }
 
     // The exact rotation quaternion for spinning at angular velocity ω for time
@@ -125,6 +125,30 @@ struct RigidBody {
         const Real angle = length(omega) * dt;
         if (angle < Real(1e-8)) return Quat::identity();
         return Quat::fromAxisAngle(omega, angle);
+    }
+
+    // --- Velocity-level operations (used by the contact solver, Part V) ---
+    // The velocity of the material point of the body currently at `worldPos`:
+    // the centre-of-mass velocity plus the spin contribution ω × r.
+    Vec3 velocityAtPoint(const Vec3& worldPos) const {
+        return linearVelocity + cross(angularVelocity(), worldPos - position);
+    }
+
+    // Apply an impulse (an instantaneous change in momentum) at a world point.
+    // Linear momentum changes by the impulse; angular momentum by its moment r×J.
+    // This is exactly applyForceAtPoint, but integrated over the step already.
+    void applyImpulse(const Vec3& impulse, const Vec3& worldPos) {
+        if (isStatic()) return;
+        linearVelocity  += impulse * invMass;
+        angularMomentum += cross(worldPos - position, impulse);   // dL = r × J
+    }
+
+    // Advance position & orientation using the CURRENT velocities (after the
+    // solver has adjusted them). Complements integrate(), which is force-driven.
+    void integratePosition(Real dt) {
+        if (isStatic()) return;
+        position += linearVelocity * dt;
+        advanceOrientation(dt);
     }
 
     // Total kinetic energy: ½ m|v|²  (linear)  +  ½ ω·L  (rotational).

@@ -68,3 +68,14 @@ a face-clipping manifold, and GJK+EPA for arbitrary convex shapes; chapters 12�
 tests (broadphase equality, GJK/EPA vs SAT); and docs with an interactive SAT
 projection widget. Debugged an EPA divergence down to inconsistent polytope
 winding.
+
+## 2026-07-13 — Milestone 5
+
+> Yes, work on the next part.
+
+Built Part V (Collision Response) — completing the engine: a sequential-impulse
+solver (normal impulse + restitution, Coulomb friction, warm starting) and a
+`World` that runs the whole pipeline, plus per-body sleeping. Chapters 16–18
+(restitution row, stacks/pyramid/friction-ramp, sleeping pile), tests, and docs
+with an interactive restitution widget. Fixed a Baumgarte energy-leak (ball
+bouncing higher than it fell) by taking max(restitution, baumgarte) not the sum.

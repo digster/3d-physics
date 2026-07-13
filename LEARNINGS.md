@@ -67,6 +67,31 @@ Hard-won, project-specific gotchas. Read before you trip over the same wire.
 - **The Dzhanibekov flip is a body-frame signal** (repeat of the Part III lesson,
   relevant when testing collision demos too): don't assert on world-frame ω.
 
+- **Baumgarte position-correction leaks energy into bounces.** Adding the
+  Baumgarte separating bias to the restitution bias (`velocityBias = restitution
+  + baumgarte`) makes a dropped ball rebound HIGHER than it fell (measured ~0.96
+  effective restitution for a set 0.8), because a fast impact penetrates deeply in
+  one step and the large penetration → large baumgarte term stacks on top of the
+  real bounce. Fix: take the **max**, not the sum (`std::max(restitution,
+  baumgarte)`) — restitution dominates a real bounce, Baumgarte dominates a slow
+  resting overlap, and they never double up. See `physics/solver.cpp::prepareContacts`.
+
+- **Clamp the ACCUMULATED contact impulse, not the per-iteration delta.** A single
+  sequential-impulse pass may legitimately want a negative normal correction (to
+  undo a previous over-push); only the running total must stay ≥ 0. Clamp
+  `normalImpulse` (the accumulator) and recover the applied delta from the change.
+
+- **Burst-spawning overlapping bodies explodes the solver.** Dropping N bodies at
+  once at random positions creates deep initial penetration; the position
+  correction then launches them apart violently (out of the bin, in Ch 18). Spawn
+  ONE body every few frames instead so nothing starts deeply overlapped.
+
+- **Basic sequential impulse drifts on tall stacks without sleeping.** A 5+ box
+  tower with sleeping disabled slowly creeps/topples over many seconds (no block
+  solver, per-axis friction, Baumgarte drift). Real engines lean on **sleeping +
+  warm starting** to freeze settled piles — which is the whole point of Ch 18. Test
+  stacks with sleeping ON.
+
 ## Rendering (software pipeline)
 
 - **Winding drives everything.** Mesh triangles are wound counter-clockwise as

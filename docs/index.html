@@ -57,14 +57,19 @@
         <text x="441" y="92" text-anchor="middle" font-size="12" fill="var(--d-stroke)" font-weight="600">Collision</text>
         <text x="441" y="108" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">Ch 12–15</text>
       </g>
+      <g>
+        <circle cx="568" cy="52" r="15" fill="var(--d-accent)"/>
+        <text x="568" y="57" text-anchor="middle" font-size="12" font-weight="700" fill="#06231f">V</text>
+        <text x="568" y="92" text-anchor="middle" font-size="12" fill="var(--d-stroke)" font-weight="600">Response</text>
+        <text x="568" y="108" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">Ch 16–18</text>
+      </g>
       <!-- upcoming -->
       <g fill="var(--d-muted)">
-        <g><circle cx="568" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="568" y="56" text-anchor="middle" font-size="11">V</text><text x="568" y="92" text-anchor="middle" font-size="11">Response</text></g>
         <g><circle cx="695" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="695" y="56" text-anchor="middle" font-size="11">VI</text><text x="695" y="92" text-anchor="middle" font-size="11">Joints</text></g>
         <g><circle cx="820" cy="52" r="12" fill="none" stroke="var(--d-grid)" stroke-width="2"/><text x="820" y="56" text-anchor="middle" font-size="11">VII</text><text x="820" y="92" text-anchor="middle" font-size="11">Soft bodies</text></g>
       </g>
     </svg>
-    <figcaption>The road ahead. This release covers <strong>Parts I–IV</strong>; later parts land part by part.</figcaption>
+    <figcaption>The road ahead. This release covers <strong>Parts I–V</strong>; later parts land part by part.</figcaption>
   </figure>
 
   <h2>Start here — Part I: Foundations</h2>
@@ -174,6 +179,29 @@
       <div class="part">Chapter 15</div>
       <div class="ttl">GJK &amp; EPA</div>
       <div class="desc">One algorithm for any convex shape, via support functions and the Minkowski difference.</div>
+    </a>
+  </div>
+
+  <h2>Part V: Collision Response</h2>
+  <p>The climax. Rigid bodies, contacts, and manifolds finally come together in an
+  impulse solver that makes things <em>behave</em>: bounce, grip, stack, and settle.
+  A detected contact stops being a drawing and starts pushing back.</p>
+
+  <div class="cards">
+    <a class="card" href="chapters/16-impulses.html">
+      <div class="part">Chapter 16</div>
+      <div class="ttl">Impulses &amp; Restitution</div>
+      <div class="desc">Turn a contact into an instantaneous change in momentum — and control how bouncy it is.</div>
+    </a>
+    <a class="card" href="chapters/17-friction.html">
+      <div class="part">Chapter 17</div>
+      <div class="ttl">Friction &amp; the Solver</div>
+      <div class="desc">The Coulomb friction cone, sequential impulses, and warm starting — what makes a stack stand.</div>
+    </a>
+    <a class="card" href="chapters/18-resting.html">
+      <div class="part">Chapter 18</div>
+      <div class="ttl">Resting Contact &amp; Sleeping</div>
+      <div class="desc">Quiet resting contact, and putting still bodies to sleep so a big pile costs almost nothing.</div>
     </a>
   </div>
 

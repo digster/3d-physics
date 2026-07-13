@@ -35,3 +35,8 @@ add_chapter(ch12_broadphase  12-broadphase  physics)
 add_chapter(ch13_narrowphase 13-narrowphase physics)
 add_chapter(ch14_sat         14-sat         physics)
 add_chapter(ch15_gjk         15-gjk         physics)
+
+# Part V — Collision Response
+add_chapter(ch16_impulses    16-impulses    physics)
+add_chapter(ch17_friction    17-friction    physics)
+add_chapter(ch18_resting     18-resting     physics)
