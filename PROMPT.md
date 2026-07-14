@@ -79,3 +79,13 @@ solver (normal impulse + restitution, Coulomb friction, warm starting) and a
 (restitution row, stacks/pyramid/friction-ramp, sleeping pile), tests, and docs
 with an interactive restitution widget. Fixed a Baumgarte energy-leak (ball
 bouncing higher than it fell) by taking max(restitution, baumgarte) not the sum.
+
+## 2026-07-13 — Milestone 6
+
+> Okay, work on the next part.
+
+Built Part VI (Constraints & Joints): distance, ball-socket (3×3 K matrix), and
+hinge joints, solved in the same impulse loop as contacts. Chapter 19 (hanging
+chain, hinged trapdoor, ragdoll), tests, and docs. Debugged a berserk hinge down
+to the door/frame colliders fighting the joint — fixed by exempting jointed pairs
+from collision.

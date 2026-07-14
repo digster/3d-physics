@@ -29,11 +29,12 @@
     { part: "Part V · Collision Response", num: "16", slug: "16-impulses", title: "Impulses & Restitution" },
     { part: "Part V · Collision Response", num: "17", slug: "17-friction", title: "Friction & the Solver" },
     { part: "Part V · Collision Response", num: "18", slug: "18-resting",  title: "Resting Contact & Sleeping" },
+    { part: "Part VI · Constraints & Joints", num: "19", slug: "19-joints", title: "Joints" },
   ];
 
   // Later parts, shown greyed-out on the roadmap so the arc is visible.
   const UPCOMING = [
-    "Part VI · Constraints & Joints", "Part VII · Beyond Rigid Bodies",
+    "Part VII · Beyond Rigid Bodies",
   ];
 
   const inChapters = location.pathname.indexOf("/chapters/") !== -1;

@@ -40,3 +40,6 @@ add_chapter(ch15_gjk         15-gjk         physics)
 add_chapter(ch16_impulses    16-impulses    physics)
 add_chapter(ch17_friction    17-friction    physics)
 add_chapter(ch18_resting     18-resting     physics)
+
+# Part VI — Constraints & Joints
+add_chapter(ch19_joints      19-joints      physics)

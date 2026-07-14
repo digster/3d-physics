@@ -65,6 +65,20 @@ inline constexpr Mat3 operator*(const Mat3& m, Real s) {
 inline constexpr Mat3 operator+(const Mat3& a, const Mat3& b) {
     Mat3 r; for (int i = 0; i < 9; ++i) r.e[i] = a.e[i] + b.e[i]; return r;
 }
+inline constexpr Mat3 operator-(const Mat3& a, const Mat3& b) {
+    Mat3 r; for (int i = 0; i < 9; ++i) r.e[i] = a.e[i] - b.e[i]; return r;
+}
+
+// The "skew-symmetric" (cross-product) matrix of a vector: the matrix S such
+// that S·w = v × w for any w. It turns the cross product into a matrix multiply,
+// which is what lets us build a joint's 3×3 effective-mass matrix (joint.cpp).
+inline constexpr Mat3 skew(const Vec3& v) {
+    Mat3 m;
+    m.at(0,1) = -v.z; m.at(0,2) =  v.y;
+    m.at(1,0) =  v.z; m.at(1,2) = -v.x;
+    m.at(2,0) = -v.y; m.at(2,1) =  v.x;
+    return m;
+}
 
 // Transpose. For a pure rotation R, the transpose is the inverse — which is why
 // rotating an inertia tensor into world space reads I_world = R · I · Rᵀ.

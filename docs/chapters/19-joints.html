@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 19 · Joints — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="19">
+<article>
+  <span class="eyebrow">Part VI · Constraints &amp; Joints · Chapter 19</span>
+  <h1>Joints</h1>
+  <p class="lead">Contacts keep bodies <em>apart</em>. Joints hold them
+  <em>together</em> — a chain link to the next, a door to its frame, an arm to a
+  shoulder. And here's the lovely part: a joint is just another constraint the
+  impulse solver already knows how to satisfy. Same machinery, one rule relaxed.</p>
+
+  <h2>Goal</h2>
+  <p>Understand joints as two-sided constraints, and build the three that cover most
+  needs: distance, ball-socket, and hinge. Engine: <code>physics/joint.hpp</code>. Demo:
+  <code>chapters/19-joints/main.cpp</code>.</p>
+
+  <h2>One-sided vs two-sided</h2>
+  <div class="callout intuition">
+    <span class="label">Intuition</span>
+    A contact is a <strong>one-sided</strong> constraint: a floor can push a ball up
+    but never pull it down, so its impulse is clamped to be non-negative. A joint is
+    <strong>two-sided</strong>: a rod between two beads keeps them <em>exactly</em> a
+    fixed distance apart, shortening AND lengthening as needed — so its impulse is
+    <em>unclamped</em>. That single difference — drop the clamp — turns the contact
+    solver into a joint solver. Everything else (effective mass, warm starting, a
+    Baumgarte nudge for drift) is identical.
+  </div>
+
+  <h2>The general recipe</h2>
+  <p>Every joint follows the same three steps the contact solver did:</p>
+  <ol>
+    <li>Write the thing that should be true as a constraint
+      <math><mi>C</mi><mo>=</mo><mn>0</mn></math> (e.g. "these two points coincide").</li>
+    <li>Its time-derivative gives a velocity constraint
+      <math><mover><mi>C</mi><mo>˙</mo></mover><mo>=</mo><mn>0</mn></math> ("the two
+      points have no relative velocity").</li>
+    <li>Apply an impulse that drives <math><mover><mi>C</mi><mo>˙</mo></mover></math> to
+      zero, plus a small bias to erase any leftover position error.</li>
+  </ol>
+
+  <h2>Distance joint — a rigid rod</h2>
+  <p>The simplest joint keeps two anchor points a fixed distance apart. It's a scalar
+  constraint along the line between them — identical to a contact's normal impulse, but
+  <em>unclamped</em> (a rod can pull as well as push) and targeting a specific length.
+  A chain of these is a rope that cannot stretch.</p>
+
+  <h2>Ball-socket joint — pin two points together</h2>
+  <p>A ball-socket (or point-to-point) joint forces two anchor points to coincide,
+  leaving the bodies free to rotate about that shared point — a shoulder, a hip, a chain
+  link. Now the constraint is a 3D vector (three equations at once), so the effective
+  "mass" is a 3×3 matrix. We build it from the masses and inertias and invert it:</p>
+  <div class="eq">
+    <math display="block"><mrow>
+      <mi>K</mi><mo>=</mo>
+      <mo>(</mo><msubsup><mi>m</mi><mi>A</mi><mrow><mo>−</mo><mn>1</mn></mrow></msubsup>
+      <mo>+</mo><msubsup><mi>m</mi><mi>B</mi><mrow><mo>−</mo><mn>1</mn></mrow></msubsup><mo>)</mo><mi>E</mi>
+      <mo>−</mo><mo>[</mo><msub><mi>r</mi><mi>A</mi></msub><mo>]</mo><msubsup><mi>I</mi><mi>A</mi><mrow><mo>−</mo><mn>1</mn></mrow></msubsup><mo>[</mo><msub><mi>r</mi><mi>A</mi></msub><mo>]</mo>
+      <mo>−</mo><mo>[</mo><msub><mi>r</mi><mi>B</mi></msub><mo>]</mo><msubsup><mi>I</mi><mi>B</mi><mrow><mo>−</mo><mn>1</mn></mrow></msubsup><mo>[</mo><msub><mi>r</mi><mi>B</mi></msub><mo>]</mo>
+    </mrow></math>
+  </div>
+  <p>where <math><mo>[</mo><mi>r</mi><mo>]</mo></math> is the skew (cross-product) matrix
+  of the lever arm. The impulse to fix the joint each pass is
+  <math><mi>P</mi><mo>=</mo><msup><mi>K</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup><mo>(</mo><mo>−</mo><mover><mi>C</mi><mo>˙</mo></mover><mo>−</mo><mtext>bias</mtext><mo>)</mo></math>
+  — a 3×3 solve, applied equal-and-opposite to the two bodies.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 620 170" role="img" aria-label="Three joint types">
+      <!-- distance -->
+      <text x="90" y="24" text-anchor="middle" font-size="12" fill="var(--d-stroke)">distance</text>
+      <circle cx="40" cy="90" r="8" fill="var(--d-a)"/><circle cx="150" cy="70" r="8" fill="var(--d-a)"/>
+      <line x1="40" y1="90" x2="150" y2="70" stroke="var(--d-muted)" stroke-width="3"/>
+      <text x="95" y="120" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">fixed length</text>
+      <!-- ball-socket -->
+      <text x="310" y="24" text-anchor="middle" font-size="12" fill="var(--d-stroke)">ball-socket</text>
+      <circle cx="310" cy="80" r="7" fill="var(--d-c)"/>
+      <rect x="250" y="60" width="55" height="40" rx="4" fill="var(--d-a)" opacity="0.5"/>
+      <rect x="315" y="60" width="55" height="40" rx="4" fill="var(--d-d)" opacity="0.5"/>
+      <text x="310" y="130" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">points pinned, free spin</text>
+      <!-- hinge -->
+      <text x="530" y="24" text-anchor="middle" font-size="12" fill="var(--d-stroke)">hinge</text>
+      <line x1="530" y1="45" x2="530" y2="130" stroke="var(--d-c)" stroke-width="2" stroke-dasharray="4 3"/>
+      <rect x="530" y="60" width="55" height="45" rx="4" fill="var(--d-d)" opacity="0.5"/>
+      <path d="M556 55 a 20 12 0 0 1 20 6" fill="none" stroke="var(--d-accent)" stroke-width="2"/>
+      <text x="530" y="145" text-anchor="middle" font-size="10.5" fill="var(--d-muted)">one axis only</text>
+    </svg>
+    <figcaption>Distance fixes a length; ball-socket pins a point (3 DOF removed); hinge
+    also shares a spin axis (5 removed, 1 left).</figcaption>
+  </figure>
+
+  <h2>Hinge joint — a shared axis</h2>
+  <p>A hinge is a ball-socket that <em>also</em> forces the two bodies to share one spin
+  axis, so the only freedom left is rotation about that line — a door, an elbow, a knee.
+  On top of the point constraint we add a small angular constraint that cancels any
+  relative spin <em>perpendicular</em> to the axis (two more equations), keeping the axes
+  aligned while leaving the swing free.</p>
+
+  <div class="callout warn">
+    <span class="label">A bug worth its own paragraph</span>
+    Our first hinge went berserk — the door's angular velocity spiked into the thousands
+    and it locked up horizontal. The cause wasn't the joint math at all: the door's
+    collider and the frame's collider <em>overlapped at the pivot</em>, so the contact
+    solver kept shoving them apart, fighting the joint that held them together. The fix
+    is what every engine does: <strong>jointed bodies don't collide with each other</strong>.
+    With that one exemption the hinge swung perfectly. (Also, two ball-sockets do NOT make
+    a good hinge — that's six equations for a five-constraint joint, so they fight; the
+    dedicated 3+2 formulation is the right one.)
+  </div>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch19_joints         # 1 hanging chain · 2 hinged trapdoor · 3 ragdoll</code></pre>
+  <p>Scene <kbd>1</kbd> is a chain of ball-socket links released from horizontal — watch
+  it whip down and settle into a hanging curve. Scene <kbd>2</kbd> is a trapdoor on a
+  hinge with a box riding it, which swings open and dumps the box. Scene <kbd>3</kbd> is a
+  ragdoll — a torso, head, arms, and legs joined by ball sockets — dropped in a heap.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>In scene <kbd>1</kbd>, count the links and note the chain never stretches, however
+      hard it whips — that's the unclamped constraint holding each link's spacing exactly.</li>
+    <li>Scene <kbd>3</kbd>: the ragdoll is nothing but boxes and ball sockets, yet it
+      collapses like a body. Complex behaviour, simple parts — the recurring theme of the
+      whole course.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>A <strong>joint</strong> is a two-sided constraint: same impulse solver as a
+      contact, without the "≥ 0" clamp.</li>
+    <li><strong>Distance</strong> fixes a length; <strong>ball-socket</strong> pins a
+      point (a 3×3 effective mass); <strong>hinge</strong> adds an axis-alignment
+      constraint.</li>
+    <li>Jointed bodies must be <strong>exempt from colliding</strong> with each other, or
+      contacts fight the joint.</li>
+  </ul>
+
+  <div class="callout intuition">
+    <span class="label">End of Part VI</span>
+    Bodies can now be chained, hinged, and hung together — the engine handles articulated
+    structures. One part remains: everything so far has been perfectly <em>rigid</em>.
+    Part VII bends that, using XPBD to make soft, wobbling bodies — a jelly cube that
+    squishes and springs back — closing the loop back to the particles and constraints of
+    Part II.
+  </div>
+</article>
+</body>
+</html>

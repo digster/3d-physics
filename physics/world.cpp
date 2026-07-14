@@ -75,6 +75,7 @@ void World::generateContacts() {
     for (const BroadPair& pr : broadphaseGrid(boxes, 2.0f)) {
         const int i = pr.first, j = pr.second;
         if (rbs[i].isStatic() && rbs[j].isStatic()) continue;   // two walls never collide
+        if (jointedPairs_.count(pairKey(i, j))) continue;       // jointed bodies don't collide
 
         const int k = collidePair(i, j, tmp);
         if (k == 0) continue;
@@ -148,14 +149,31 @@ void World::step(Real dt) {
     for (int i = 0; i < n; ++i)
         if (!rbs[i].isStatic() && awake[i]) rbs[i].linearVelocity += gravity * dt;
 
+    // Jointed bodies never sleep — a joint keeps its bodies live — and jointed
+    // pairs are exempted from collision (recorded here for generateContacts).
+    jointedPairs_.clear();
+    for (auto& j : joints) {
+        if (j->bodyA >= 0 && !rbs[j->bodyA].isStatic()) awake[j->bodyA] = 1;
+        if (j->bodyB >= 0 && !rbs[j->bodyB].isStatic()) awake[j->bodyB] = 1;
+        if (j->bodyA >= 0 && j->bodyB >= 0) jointedPairs_.insert(pairKey(j->bodyA, j->bodyB));
+    }
+
     // 2–3. Find contacts.
     generateContacts();
 
-    // 4. Warm start, prepare, then iterate the impulse solve.
+    // 4. Warm start, prepare, then iterate the impulse solve — contacts AND
+    //    joints share the same loop (joints are just constraints we never clamp).
     seedFromCache();
     prepareContacts(constraints_, rbs, solver, dt);
-    if (solver.warmStart) warmStartContacts(constraints_, rbs);
-    for (int it = 0; it < solver.iterations; ++it) solveVelocities(constraints_, rbs);
+    for (auto& j : joints) j->prepare(rbs, dt);
+    if (solver.warmStart) {
+        warmStartContacts(constraints_, rbs);
+        for (auto& j : joints) j->warmStart(rbs);
+    }
+    for (int it = 0; it < solver.iterations; ++it) {
+        for (auto& j : joints) j->solve(rbs);
+        solveVelocities(constraints_, rbs);
+    }
 
     // 5. Integrate positions with the freshly solved velocities.
     for (int i = 0; i < n; ++i)

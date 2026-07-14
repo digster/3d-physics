@@ -22,9 +22,12 @@
 #include "rigidbody.hpp"
 #include "collider.hpp"
 #include "solver.hpp"
+#include "joint.hpp"
 
 #include <cstdint>
+#include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace p3d {
@@ -36,6 +39,7 @@ public:
     std::vector<Collider>  colliders;   // one shape+material per body
     std::vector<char>      awake;       // 0 = sleeping, 1 = awake (char = simple bool)
     std::vector<Real>      sleepTimer;  // seconds a body has been nearly still
+    std::vector<std::unique_ptr<Joint>> joints;   // bilateral constraints (Ch 19)
 
     // --- Tunables ---------------------------------------------------------
     Vec3 gravity{0, -9.81f, 0};
@@ -69,6 +73,10 @@ private:
     // with last frame, so we can re-apply them as a head start this frame.
     struct Cached { Vec3 point; Real n, t1, t2; };
     std::unordered_map<uint64_t, std::vector<Cached>> cache_;
+
+    // Body pairs connected by a joint don't collide (a hinge's door and frame
+    // overlap at the pivot; letting them contact would fight the joint).
+    std::unordered_set<uint64_t> jointedPairs_;
 
     void generateContacts();
     int  collidePair(int i, int j, Contact out[8]) const;

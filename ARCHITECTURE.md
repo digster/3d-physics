@@ -219,9 +219,33 @@ using solved velocities; the orientation update was factored into
   Basic sequential impulse drifts slowly on tall stacks without sleeping — which
   is exactly why sleeping (Ch 18) matters.
 
+### Part VI — Constraints & Joints (implemented)
+
+Joints are bilateral (equality) constraints, so they reuse the Part V solver's
+impulse math without the ≥0 clamp, and are solved in the same iteration loop.
+
+| File | Responsibility | Introduced in |
+|------|----------------|---------------|
+| `common/math/mat3.hpp` | gained `operator-` and `skew(v)` (the cross-product matrix) for the 3×3 joint mass | Ch 19 |
+| `physics/joint.hpp/.cpp` | `Joint` base (prepare / warmStart / solve) + `DistanceJoint` (scalar rod), `BallSocketJoint` (point-to-point, 3×3 `K = (mA⁻¹+mB⁻¹)E − [rA]IA⁻¹[rA] − [rB]IB⁻¹[rB]`), `HingeJoint` (ball-socket + a 2-DOF axis-alignment constraint) | Ch 19 |
+
+`World` gained a `joints` vector (of `unique_ptr<Joint>`); `step()` prepares,
+warm-starts, and solves joints inside the same velocity-iteration loop as
+contacts. `RigidBody` already had `applyImpulse`/`velocityAtPoint` from Part V.
+
+**Design notes.**
+- **Jointed pairs don't collide.** `World` records connected body pairs and skips
+  them in `generateContacts`. Without this, a hinge's door and frame colliders
+  overlap at the pivot and the contact solver fights the joint (the door's ω spiked
+  into the thousands) — see `LEARNINGS.md`.
+- A hinge is 3 (point) + 2 (angular) = 5 constraints, leaving 1 DOF. Two
+  ball-sockets are *not* a substitute (6 constraints → over-constrained, they fight).
+- Chains use `BallSocketJoint` between link ends; the ragdoll uses ball sockets at
+  every limb; the door/trapdoor uses `HingeJoint`.
+
 ### Planned (later parts)
 
-Joints (VI) → XPBD soft bodies (VII). Filled in as those parts land.
+XPBD soft bodies (VII). Filled in when it lands.
 
 ## `docs/` — the tutorial (no build step)
 

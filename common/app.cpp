@@ -150,11 +150,12 @@ int App::run(int argc, char** argv) {
         if (std::strcmp(argv[i], "--selftest") == 0) selftest = true;
         else if (std::strcmp(argv[i], "--frames") == 0 && i + 1 < argc) selftestFrames = std::atoi(argv[++i]);
         else if (std::strcmp(argv[i], "--shot") == 0 && i + 1 < argc) shotPath = argv[++i];
+        else if (std::strcmp(argv[i], "--scene") == 0 && i + 1 < argc) sceneVariant_ = std::atoi(argv[++i]);
     }
 
     if (!initSDL(/*hidden=*/selftest)) return 1;
     onStart();
-    onReset();   // build the initial scene
+    onReset();   // build the initial scene (honours --scene)
 
     if (selftest) {
         if (shotPath.empty()) shotPath = "selftest.bmp";

@@ -92,6 +92,25 @@ Hard-won, project-specific gotchas. Read before you trip over the same wire.
   warm starting** to freeze settled piles — which is the whole point of Ch 18. Test
   stacks with sleeping ON.
 
+- **Jointed bodies must NOT collide with each other.** A hinge's door and frame
+  colliders overlap at the pivot; if the contact solver acts on that overlap it
+  fights the joint holding them together — the door's angular velocity spiked to
+  thousands and it locked up. Fix: `World` records connected pairs and skips them in
+  `generateContacts`. This single exemption is why the hinge went from berserk to
+  swinging perfectly. Symptom to recognise: a joint that "locks" or explodes when
+  the two bodies' shapes touch.
+
+- **A hinge is 3+2 constraints, not two ball-sockets.** Pinning two points along the
+  axis (2 × ball-socket = 6 equations) over-constrains a 5-DOF hinge, and the
+  redundant constraint makes the joints fight (unstable, swings the wrong way). The
+  correct decomposition is one point-to-point (3) + a 2-DOF angular axis-alignment
+  constraint (2).
+
+- **An undamped joint pendulum oscillates — test the extremum, not a snapshot.** A
+  gravity-driven hinge/distance pendulum swings back and forth forever, so asserting
+  on the body's angle at a single final frame is a coin-flip. Track the min/max over
+  the run instead (e.g. "the arm dipped below −0.5 at some point").
+
 ## Rendering (software pipeline)
 
 - **Winding drives everything.** Mesh triangles are wound counter-clockwise as
