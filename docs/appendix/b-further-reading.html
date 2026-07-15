@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Appendix B · Further Reading — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-appendix="b-further-reading">
+<article>
+  <span class="eyebrow">Appendix B</span>
+  <h1>Further Reading</h1>
+  <p class="lead">This course is a first pass — deep enough to build a real engine, but
+  every part has a rabbit hole. These are the sources this material is built on and the
+  best places to go deeper, grouped by the part they extend. Titles and authors are given
+  so you can find the current edition; a few have stable homes linked directly.</p>
+
+  <h2>Integration &amp; the timestep <span style="font-weight:400;font-size:0.7em;color:var(--muted)">(Ch 5)</span></h2>
+  <ul>
+    <li><strong>Glenn Fiedler — "Fix Your Timestep!" and "Integration Basics"</strong>
+      (<a href="https://gafferongames.com/">gafferongames.com</a>). The clearest explanation
+      of the fixed-timestep accumulator and why semi-implicit Euler beats the naive one —
+      Chapter 5 is essentially a retelling.</li>
+    <li><strong>3Blue1Brown — "Essence of Linear Algebra"</strong> (video series). If the
+      vector/matrix intuition in Parts I felt shaky, this is the gold-standard visual
+      refresher for dot/cross products and what a matrix really does.</li>
+  </ul>
+
+  <h2>Particles, cloth &amp; position-based dynamics <span style="font-weight:400;font-size:0.7em;color:var(--muted)">(Ch 6–9, 20)</span></h2>
+  <ul>
+    <li><strong>Thomas Jakobsen — "Advanced Character Physics"</strong> (GDC 2001). The
+      Verlet-plus-constraint-projection method behind our ropes and cloth, from the
+      <em>Hitman</em> engine.</li>
+    <li><strong>Matthias Müller et al. — "Position Based Dynamics"</strong> (2007), and
+      <strong>Macklin, Müller et al. — "XPBD"</strong> (2016). The papers behind Parts II and
+      VII; XPBD adds the compliance term that made our jello's stiffness physical. Müller's
+      <a href="https://matthias-research.github.io/pages/tenMinutePhysics/">"Ten Minute
+      Physics"</a> tutorials are an outstanding, code-first companion.</li>
+    <li><strong>Ian Millington — "Game Physics Engine Development"</strong> (book). Builds a
+      particle-and-rigid-body engine from scratch, C++ throughout; the force-generator pattern
+      in Chapter 6 comes straight from here.</li>
+  </ul>
+
+  <h2>Rigid-body dynamics <span style="font-weight:400;font-size:0.7em;color:var(--muted)">(Ch 10–11)</span></h2>
+  <ul>
+    <li><strong>David Baraff &amp; Andrew Witkin — "Physically Based Modeling: Principles and
+      Practice"</strong> (SIGGRAPH course notes). Baraff's rigid-body sections derive the
+      inertia tensor, torque, and angular momentum carefully — the theory under Chapter 11.</li>
+    <li><strong>The Dzhanibekov / tennis-racket theorem.</strong> Search for the cosmonaut
+      Vladimir Dzhanibekov's wingnut footage from the space station, and the "intermediate axis
+      theorem" — the same effect our T-handle reproduces, and a lovely rabbit hole into
+      Euler's equations.</li>
+  </ul>
+
+  <h2>Collision detection <span style="font-weight:400;font-size:0.7em;color:var(--muted)">(Ch 12–15)</span></h2>
+  <ul>
+    <li><strong>Christer Ericson — "Real-Time Collision Detection"</strong> (book, "RTCD").
+      The definitive reference — AABBs, broadphase, closest-point tests, and the SAT. If you
+      buy one physics book, this is it.</li>
+    <li><strong>Dirk Gregorius — GDC talks on the Separating-Axis Test and robust contact
+      creation.</strong> The practical details of box-box SAT and stable manifold generation
+      behind Chapter 14.</li>
+    <li><strong>Casey Muratori — "Implementing GJK"</strong> (video), and
+      <strong>Gino van den Bergen — "Collision Detection in Interactive 3D Environments"</strong>
+      (book). The clearest walkthroughs of GJK. Kevin Moran's
+      <a href="https://blog.winter.dev/2020/gjk-algorithm/">GJK/EPA article at winter.dev</a>
+      is the direct model for our implementation — including the consistently-wound EPA
+      polytope that fixed our divergence bug.</li>
+  </ul>
+
+  <h2>Collision response, the solver &amp; joints <span style="font-weight:400;font-size:0.7em;color:var(--muted)">(Ch 16–19)</span></h2>
+  <ul>
+    <li><strong>Erin Catto — GDC talks and Box2D</strong>
+      (<a href="https://box2d.org/">box2d.org</a>). "Fast and Simple Physics using Sequential
+      Impulses", "Soft Constraints", and "Understanding Constraints" are the foundation of our
+      entire Part V–VI solver — sequential impulses, warm starting, Baumgarte, and the
+      constraint formulation for joints. Box2D itself is a masterclass in readable engine code.</li>
+    <li><strong>Randy Gaul — "Impulse Engine" and blog</strong>. Approachable, well-commented
+      implementations of impulse-based response and manifold generation.</li>
+  </ul>
+
+  <h2>Rendering <span style="font-weight:400;font-size:0.7em;color:var(--muted)">(Ch 4)</span></h2>
+  <ul>
+    <li><strong>Akenine-Möller, Haines et al. — "Real-Time Rendering"</strong> (book). Far
+      beyond our software rasteriser, but the canonical reference for the transform pipeline,
+      projection, and everything a real GPU renderer does.</li>
+    <li><strong>The SDL3 documentation</strong> (<a href="https://wiki.libsdl.org/">wiki.libsdl.org</a>)
+      for the windowing, input, and <code>SDL_RenderGeometry</code> calls the whole project sits on.</li>
+  </ul>
+
+  <div class="callout intuition">
+    <span class="label">How to use this list</span>
+    Don't read it front to back. When a chapter leaves you wanting more — "but how do real
+    engines make stacks <em>truly</em> stable?", "what if the shapes aren't convex?" — come
+    back and pull the matching thread. Everything here assumes exactly the foundation you just
+    built.
+  </div>
+</article>
+</body>
+</html>

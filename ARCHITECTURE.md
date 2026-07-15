@@ -284,6 +284,14 @@ directly. Conventions:
   read about it.
 - `docs/js/docs.js` provides the table of contents, prev/next navigation, the
   light/dark toggle, and a tiny C++ syntax highlighter (again, no dependency).
+  It builds the sidebar from a chapter manifest plus an appendix manifest, and is
+  directory-aware — pages live in both `docs/chapters/` and `docs/appendix/`, so
+  links resolve relative to wherever the current page sits.
+- `docs/appendix/` holds three reference pages that sit after the chapters:
+  **A · Math Cheat-Sheet** (every formula in tables, each row linking to its
+  chapter), **B · Further Reading** (annotated sources per part), and
+  **C · Engine Anatomy** (the layer + `World::step` diagrams and a file map — a
+  companion to this document from the reader's side).
 
 ## Conventions worth knowing
 

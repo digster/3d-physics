@@ -36,10 +36,23 @@
   // The course is complete — no upcoming parts.
   const UPCOMING = [];
 
+  // Reference appendices (not chapters), listed after the chapters in the sidebar.
+  const APPENDICES = [
+    { slug: "a-math-cheatsheet",   title: "A · Math Cheat-Sheet" },
+    { slug: "b-further-reading",   title: "B · Further Reading" },
+    { slug: "c-engine-architecture", title: "C · Engine Anatomy" },
+  ];
+
+  // Pages live in chapters/ or appendix/ (or the root index). Compute link
+  // prefixes so navigation works from any of them.
   const inChapters = location.pathname.indexOf("/chapters/") !== -1;
-  const toChapter = (slug) => (inChapters ? slug + ".html" : "chapters/" + slug + ".html");
-  const toHome = inChapters ? "../index.html" : "index.html";
-  const asset = (p) => (inChapters ? "../" + p : p);
+  const inAppendix = location.pathname.indexOf("/appendix/") !== -1;
+  const inSub = inChapters || inAppendix;
+  const toChapter = (slug) =>
+    inChapters ? slug + ".html" : (inAppendix ? "../chapters/" + slug + ".html" : "chapters/" + slug + ".html");
+  const toAppendix = (slug) =>
+    inAppendix ? slug + ".html" : (inChapters ? "../appendix/" + slug + ".html" : "appendix/" + slug + ".html");
+  const toHome = inSub ? "../index.html" : "index.html";
 
   // --- Theme -----------------------------------------------------------------
   function applyStoredTheme() {
@@ -77,7 +90,7 @@
   }
 
   // --- Build the sidebar -----------------------------------------------------
-  function buildSidebar(currentNum) {
+  function buildSidebar(currentNum, currentAppendix) {
     const nav = document.createElement("nav");
     nav.className = "sidebar";
     let html = "";
@@ -87,6 +100,11 @@
       const cls = c.num === currentNum ? "current" : "";
       html += '<a class="' + cls + '" href="' + toChapter(c.slug) + '">' +
               '<span class="ch-num">' + c.num + "</span>" + c.title + "</a>";
+    });
+    html += "<h4>Appendices</h4>";
+    APPENDICES.forEach((a) => {
+      const cls = a.slug === currentAppendix ? "current" : "";
+      html += '<a class="' + cls + '" href="' + toAppendix(a.slug) + '">' + a.title + "</a>";
     });
     nav.innerHTML = html;
     return nav;
@@ -491,6 +509,7 @@
   document.addEventListener("DOMContentLoaded", function () {
     buildTopbar();
     const currentNum = document.body.getAttribute("data-chapter");
+    const currentAppendix = document.body.getAttribute("data-appendix");
 
     // Only chapter/content pages get the sidebar+pager layout wrapper.
     const article = document.querySelector("article");
@@ -500,7 +519,7 @@
       const content = document.createElement("div");
       content.className = "content";
       article.parentNode.insertBefore(layout, article);
-      layout.appendChild(buildSidebar(currentNum || ""));
+      layout.appendChild(buildSidebar(currentNum || "", currentAppendix || ""));
       content.appendChild(article);
       layout.appendChild(content);
 

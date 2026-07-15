@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Appendix A · Math Cheat-Sheet — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-appendix="a-math-cheatsheet">
+<article>
+  <span class="eyebrow">Appendix A</span>
+  <h1>Math Cheat-Sheet</h1>
+  <p class="lead">Every formula the engine leans on, in one place. Each row links back
+  to the chapter that explains the <em>why</em>; this page is just the <em>what</em>.
+  Notation: <math><mi>a</mi><mo>·</mo><mi>b</mi></math> is the dot product,
+  <math><mi>a</mi><mo>×</mo><mi>b</mi></math> the cross product,
+  <math><mo>|</mo><mi>a</mi><mo>|</mo></math> a length, and a hat
+  (<math><mover><mi>a</mi><mo>^</mo></mover></math>) a unit vector.</p>
+
+  <h2>Vectors <span style="font-weight:400;font-size:0.7em;color:var(--muted)">(Ch 2)</span></h2>
+  <div class="table-scroll"><table>
+    <tr><th>Quantity</th><th>Formula</th><th>Meaning</th></tr>
+    <tr><td>Dot product</td>
+      <td><math><mrow><mi>a</mi><mo>·</mo><mi>b</mi><mo>=</mo><msub><mi>a</mi><mi>x</mi></msub><msub><mi>b</mi><mi>x</mi></msub><mo>+</mo><msub><mi>a</mi><mi>y</mi></msub><msub><mi>b</mi><mi>y</mi></msub><mo>+</mo><msub><mi>a</mi><mi>z</mi></msub><msub><mi>b</mi><mi>z</mi></msub><mo>=</mo><mrow><mo>|</mo><mi>a</mi><mo>|</mo></mrow><mrow><mo>|</mo><mi>b</mi><mo>|</mo></mrow><mi>cos</mi><mi>θ</mi></mrow></math></td>
+      <td>Alignment; 0 = perpendicular.</td></tr>
+    <tr><td>Cross product</td>
+      <td><math><mrow><mi>a</mi><mo>×</mo><mi>b</mi><mo>=</mo><mo>(</mo><msub><mi>a</mi><mi>y</mi></msub><msub><mi>b</mi><mi>z</mi></msub><mo>−</mo><msub><mi>a</mi><mi>z</mi></msub><msub><mi>b</mi><mi>y</mi></msub><mo>,</mo><mspace width="3px"/><msub><mi>a</mi><mi>z</mi></msub><msub><mi>b</mi><mi>x</mi></msub><mo>−</mo><msub><mi>a</mi><mi>x</mi></msub><msub><mi>b</mi><mi>z</mi></msub><mo>,</mo><mspace width="3px"/><msub><mi>a</mi><mi>x</mi></msub><msub><mi>b</mi><mi>y</mi></msub><mo>−</mo><msub><mi>a</mi><mi>y</mi></msub><msub><mi>b</mi><mi>x</mi></msub><mo>)</mo></mrow></math></td>
+      <td>Perpendicular vector; length = area.</td></tr>
+    <tr><td>Length</td>
+      <td><math><mrow><mo>|</mo><mi>a</mi><mo>|</mo><mo>=</mo><msqrt><mrow><mi>a</mi><mo>·</mo><mi>a</mi></mrow></msqrt></mrow></math></td>
+      <td>Compare with <math><mi>a</mi><mo>·</mo><mi>a</mi></math> to skip the root.</td></tr>
+    <tr><td>Normalize</td>
+      <td><math><mrow><mover><mi>a</mi><mo>^</mo></mover><mo>=</mo><mi>a</mi><mo>/</mo><mrow><mo>|</mo><mi>a</mi><mo>|</mo></mrow></mrow></math></td>
+      <td>Keep the direction, set length to 1.</td></tr>
+    <tr><td>Projection</td>
+      <td><math><mrow><msub><mtext>proj</mtext><mi>b</mi></msub><mi>a</mi><mo>=</mo><mfrac><mrow><mi>a</mi><mo>·</mo><mi>b</mi></mrow><mrow><mi>b</mi><mo>·</mo><mi>b</mi></mrow></mfrac><mi>b</mi></mrow></math></td>
+      <td>The shadow of a along b.</td></tr>
+    <tr><td>Reflection</td>
+      <td><math><mrow><mi>r</mi><mo>=</mo><mi>v</mi><mo>−</mo><mn>2</mn><mo>(</mo><mi>v</mi><mo>·</mo><mover><mi>n</mi><mo>^</mo></mover><mo>)</mo><mover><mi>n</mi><mo>^</mo></mover></mrow></math></td>
+      <td>Mirror bounce about a surface normal.</td></tr>
+  </table></div>
+
+  <h2>Matrices &amp; transforms <span style="font-weight:400;font-size:0.7em;color:var(--muted)">(Ch 3–4)</span></h2>
+  <div class="table-scroll"><table>
+    <tr><th>Operation</th><th>Note</th></tr>
+    <tr><td>Apply a transform</td><td><math><mrow><msup><mi>v</mi><mo>′</mo></msup><mo>=</mo><mi>M</mi><mi>v</mi></mrow></math> — the result is a blend of M's columns.</td></tr>
+    <tr><td>Compose</td><td><math><mrow><mi>M</mi><mo>=</mo><mi>T</mi><mi>R</mi><mi>S</mi></mrow></math> — read right-to-left: scale, then rotate, then translate.</td></tr>
+    <tr><td>Point vs. direction</td><td>Points use <math><mi>w</mi><mo>=</mo><mn>1</mn></math> (translation applies); directions use <math><mi>w</mi><mo>=</mo><mn>0</mn></math>.</td></tr>
+    <tr><td>Perspective divide</td><td><math><mrow><mo>(</mo><mi>x</mi><mo>,</mo><mi>y</mi><mo>,</mo><mi>z</mi><mo>,</mo><mi>w</mi><mo>)</mo><mo>→</mo><mo>(</mo><mfrac><mi>x</mi><mi>w</mi></mfrac><mo>,</mo><mfrac><mi>y</mi><mi>w</mi></mfrac><mo>,</mo><mfrac><mi>z</mi><mi>w</mi></mfrac><mo>)</mo></mrow></math> — makes distant things small.</td></tr>
+    <tr><td>Rotation ↔ inverse</td><td>For a pure rotation <math><mi>R</mi></math>, <math><msup><mi>R</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup><mo>=</mo><msup><mi>R</mi><mi>T</mi></msup></math> (transpose = inverse).</td></tr>
+  </table></div>
+
+  <h2>Quaternions <span style="font-weight:400;font-size:0.7em;color:var(--muted)">(Ch 10)</span></h2>
+  <div class="table-scroll"><table>
+    <tr><th>Quantity</th><th>Formula</th><th>Meaning</th></tr>
+    <tr><td>Axis-angle</td><td><math><mrow><mi>q</mi><mo>=</mo><mo>(</mo><mi>cos</mi><mfrac><mi>θ</mi><mn>2</mn></mfrac><mo>,</mo><mspace width="3px"/><mover><mi>a</mi><mo>^</mo></mover><mi>sin</mi><mfrac><mi>θ</mi><mn>2</mn></mfrac><mo>)</mo></mrow></math></td><td>Rotate θ about unit axis a (half-angle!).</td></tr>
+    <tr><td>Compose</td><td><math><mrow><mi>q</mi><mo>=</mo><msub><mi>q</mi><mn>1</mn></msub><msub><mi>q</mi><mn>2</mn></msub></mrow></math></td><td>Do <math><msub><mi>q</mi><mn>2</mn></msub></math> then <math><msub><mi>q</mi><mn>1</mn></msub></math> (like matrices).</td></tr>
+    <tr><td>Rotate a vector</td><td><math><mrow><msup><mi>v</mi><mo>′</mo></msup><mo>=</mo><mi>q</mi><mi>v</mi><msup><mi>q</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup></mrow></math></td><td>The sandwich product.</td></tr>
+    <tr><td>Integrate spin</td><td><math><mrow><mover><mi>q</mi><mo>˙</mo></mover><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mi>ω</mi><mo>⊗</mo><mi>q</mi></mrow></math></td><td>Rotational "position += velocity·dt".</td></tr>
+  </table></div>
+
+  <h2>Rigid-body dynamics <span style="font-weight:400;font-size:0.7em;color:var(--muted)">(Ch 6, 11)</span></h2>
+  <div class="table-scroll"><table>
+    <tr><th>Linear</th><th>Angular</th></tr>
+    <tr><td>Force <math><mi>F</mi><mo>=</mo><mi>m</mi><mi>a</mi></math></td><td>Torque <math><mi>τ</mi><mo>=</mo><mi>r</mi><mo>×</mo><mi>F</mi><mo>=</mo><mi>I</mi><mi>α</mi></math></td></tr>
+    <tr><td>Momentum <math><mi>p</mi><mo>=</mo><mi>m</mi><mi>v</mi></math></td><td>Ang. momentum <math><mi>L</mi><mo>=</mo><mi>I</mi><mi>ω</mi></math></td></tr>
+    <tr><td>Impulse <math><mi>J</mi><mo>=</mo><mi>Δp</mi><mo>=</mo><mi>m</mi><mi>Δv</mi></math></td><td>Derive <math><mi>ω</mi><mo>=</mo><msup><mi>I</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup><mi>L</mi></math>, rotate <math><mi>I</mi></math> to world: <math><mi>R</mi><mi>I</mi><msup><mi>R</mi><mi>T</mi></msup></math></td></tr>
+  </table></div>
+  <p>Inertia tensors (solid, principal axes): box half-extents <math><mi>h</mi></math> →
+  <math><mfrac><mi>m</mi><mn>3</mn></mfrac><mo>(</mo><msubsup><mi>h</mi><mi>j</mi><mn>2</mn></msubsup><mo>+</mo><msubsup><mi>h</mi><mi>k</mi><mn>2</mn></msubsup><mo>)</mo></math> per axis;
+  sphere <math><mfrac><mn>2</mn><mn>5</mn></mfrac><mi>m</mi><msup><mi>r</mi><mn>2</mn></msup></math>. Parallel-axis shift: add
+  <math><mi>m</mi><mo>(</mo><mo>(</mo><mi>d</mi><mo>·</mo><mi>d</mi><mo>)</mo><mi>E</mi><mo>−</mo><mi>d</mi><mo>⊗</mo><mi>d</mi><mo>)</mo></math>.</p>
+
+  <h2>Integration <span style="font-weight:400;font-size:0.7em;color:var(--muted)">(Ch 5)</span></h2>
+  <div class="table-scroll"><table>
+    <tr><th>Method</th><th>Update</th><th>Character</th></tr>
+    <tr><td>Explicit Euler</td><td><math><mrow><mi>x</mi><mo>+</mo><mo>=</mo><mi>v</mi><mi>Δt</mi><mo>;</mo><mspace width="4px"/><mi>v</mi><mo>+</mo><mo>=</mo><mi>a</mi><mi>Δt</mi></mrow></math></td><td>Leaks energy — avoid.</td></tr>
+    <tr><td>Semi-implicit Euler</td><td><math><mrow><mi>v</mi><mo>+</mo><mo>=</mo><mi>a</mi><mi>Δt</mi><mo>;</mo><mspace width="4px"/><mi>x</mi><mo>+</mo><mo>=</mo><mi>v</mi><mi>Δt</mi></mrow></math></td><td>Stable; the default.</td></tr>
+    <tr><td>Verlet</td><td><math><mrow><msub><mi>x</mi><mtext>next</mtext></msub><mo>=</mo><mn>2</mn><mi>x</mi><mo>−</mo><msub><mi>x</mi><mtext>prev</mtext></msub><mo>+</mo><mi>a</mi><msup><mi>Δt</mi><mn>2</mn></msup></mrow></math></td><td>Velocity from history; loves constraints.</td></tr>
+  </table></div>
+  <p>Always integrate at a <strong>fixed</strong> <math><mi>Δt</mi></math> (accumulator pattern) for stability and determinism.</p>
+
+  <h2>Collision &amp; constraints <span style="font-weight:400;font-size:0.7em;color:var(--muted)">(Ch 16–20)</span></h2>
+  <div class="table-scroll"><table>
+    <tr><th>Quantity</th><th>Formula</th></tr>
+    <tr><td>Contact normal impulse</td><td><math><mrow><mi>λ</mi><mo>=</mo><mfrac><mrow><mo>−</mo><mo>(</mo><msub><mi>v</mi><mi>n</mi></msub><mo>−</mo><mtext>bias</mtext><mo>)</mo></mrow><mtext>effMass</mtext></mfrac></mrow></math>, clamped <math><mi>λ</mi><mo>≥</mo><mn>0</mn></math></td></tr>
+    <tr><td>Restitution target</td><td><math><mrow><msubsup><mi>v</mi><mi>n</mi><mo>′</mo></msubsup><mo>=</mo><mo>−</mo><mi>e</mi><mo>&#8201;</mo><msub><mi>v</mi><mi>n</mi></msub></mrow></math> (each bounce keeps <math><msup><mi>e</mi><mn>2</mn></msup></math> of the height)</td></tr>
+    <tr><td>Friction (Coulomb)</td><td><math><mrow><mo>|</mo><msub><mi>J</mi><mi>t</mi></msub><mo>|</mo><mo>≤</mo><mi>μ</mi><msub><mi>J</mi><mi>n</mi></msub></mrow></math> — inside the cone grips, on it slips</td></tr>
+    <tr><td>Ball-socket mass</td><td><math><mrow><mi>K</mi><mo>=</mo><mo>(</mo><msubsup><mi>m</mi><mi>A</mi><mrow><mo>−</mo><mn>1</mn></mrow></msubsup><mo>+</mo><msubsup><mi>m</mi><mi>B</mi><mrow><mo>−</mo><mn>1</mn></mrow></msubsup><mo>)</mo><mi>E</mi><mo>−</mo><mo>[</mo><mi>r</mi><mo>]</mo><msup><mi>I</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup><mo>[</mo><mi>r</mi><mo>]</mo><mo>…</mo></mrow></math></td></tr>
+    <tr><td>XPBD constraint</td><td><math><mrow><mi>Δλ</mi><mo>=</mo><mfrac><mrow><mo>−</mo><mi>C</mi><mo>−</mo><mover><mi>α</mi><mo>~</mo></mover><mi>λ</mi></mrow><mrow><mi>Σ</mi><mi>w</mi><mo>+</mo><mover><mi>α</mi><mo>~</mo></mover></mrow></mfrac></mrow></math>, <math><mover><mi>α</mi><mo>~</mo></mover><mo>=</mo><mi>α</mi><mo>/</mo><msup><mi>Δt</mi><mn>2</mn></msup></math> (α = compliance)</td></tr>
+  </table></div>
+
+  <div class="callout tip">
+    <span class="label">Conventions used throughout</span>
+    SI units (m, kg, s); gravity <math><mo>−</mo><mn>9.81</mn></math> on y; right-handed
+    world; column-major matrices with <math><mi>A</mi><mi>B</mi></math> = "apply B then A";
+    quaternions stored <math><mo>(</mo><mi>w</mi><mo>,</mo><mi>x</mi><mo>,</mo><mi>y</mi><mo>,</mo><mi>z</mi><mo>)</mo></math>;
+    contact normals point from B to A.
+  </div>
+</article>
+</body>
+</html>

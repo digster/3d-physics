@@ -98,3 +98,14 @@ Built Part VII (Beyond Rigid Bodies): XPBD soft bodies — a particle lattice wi
 compliant (springy) distance constraints, substepped. Chapter 20 (jello drop,
 stiff→soft row, hanging jello), tests, and docs. **This completes the course** —
 all 20 chapters across 7 parts, a full from-scratch rigid + soft body engine.
+
+## 2026-07-15 — Appendices
+
+> Okay, add it.
+
+Approved adding the three appendices from the original plan. Built
+`docs/appendix/{a-math-cheatsheet,b-further-reading,c-engine-architecture}.html`,
+extended `docs/js/docs.js` with an appendix manifest + directory-aware nav + a
+sidebar "Appendices" section, and added an Appendices card row to the landing
+page. Verified in the browser. This is the final piece — the course and its
+supporting material are complete.
