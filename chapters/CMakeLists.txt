@@ -43,3 +43,6 @@ add_chapter(ch18_resting     18-resting     physics)
 
 # Part VI — Constraints & Joints
 add_chapter(ch19_joints      19-joints      physics)
+
+# Part VII — Beyond Rigid Bodies
+add_chapter(ch20_xpbd        20-xpbd        physics)

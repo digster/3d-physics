@@ -30,12 +30,11 @@
     { part: "Part V · Collision Response", num: "17", slug: "17-friction", title: "Friction & the Solver" },
     { part: "Part V · Collision Response", num: "18", slug: "18-resting",  title: "Resting Contact & Sleeping" },
     { part: "Part VI · Constraints & Joints", num: "19", slug: "19-joints", title: "Joints" },
+    { part: "Part VII · Beyond Rigid Bodies", num: "20", slug: "20-xpbd", title: "XPBD & Soft Bodies" },
   ];
 
-  // Later parts, shown greyed-out on the roadmap so the arc is visible.
-  const UPCOMING = [
-    "Part VII · Beyond Rigid Bodies",
-  ];
+  // The course is complete — no upcoming parts.
+  const UPCOMING = [];
 
   const inChapters = location.pathname.indexOf("/chapters/") !== -1;
   const toChapter = (slug) => (inChapters ? slug + ".html" : "chapters/" + slug + ".html");

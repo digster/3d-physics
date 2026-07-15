@@ -243,9 +243,32 @@ contacts. `RigidBody` already had `applyImpulse`/`velocityAtPoint` from Part V.
 - Chains use `BallSocketJoint` between link ends; the ragdoll uses ball sockets at
   every limb; the door/trapdoor uses `HingeJoint`.
 
-### Planned (later parts)
+### Part VII — Beyond Rigid Bodies (implemented)
 
-XPBD soft bodies (VII). Filled in when it lands.
+The finale, closing the loop back to Part II's position-based constraints.
+
+| File | Responsibility | Introduced in |
+|------|----------------|---------------|
+| `physics/softbody.hpp/.cpp` | `SoftBody`: a particle lattice + compliant distance springs; XPBD substepped `step()`; a cube builder (structural + shear + volume constraints); floor collision + friction; a surface mesh rebuilt each frame | Ch 20 |
+
+**Design notes.**
+- **XPBD** extends the Jakobsen constraint of Chapter 8 with a *compliance* α
+  (inverse stiffness) and an accumulated multiplier λ: `dλ = (−C − α̃λ)/(w₁+w₂+α̃)`,
+  `α̃ = α/h²`. α = 0 recovers a rigid constraint; α > 0 is a spring whose stiffness
+  is independent of timestep and iteration count (the tests check substep-independence).
+- **Substepping** (many tiny steps, one solve each) is XPBD's stability trick — the
+  `step()` runs ~12 substeps per frame.
+- A solid cube needs structural (edges) + shear (face diagonals) + **volume** (body
+  diagonals) constraints, or it collapses flat. Reuses `Particle` (pos/prevPos/invMass)
+  from Part II and the `Mesh` struct for double-sided surface rendering.
+
+## The whole engine
+
+`World::step` now runs the entire course in one call: gravity → broadphase (Ch 12)
+→ narrowphase (Ch 13–15) → warm-started impulse solve of contacts and joints
+(Ch 16–17, 19) → integrate positions (Ch 11) → sleeping (Ch 18). Soft bodies
+(Ch 20) run their own XPBD loop. Everything was built from scratch on the
+`common/` math + software renderer + fixed-timestep loop of Part I.
 
 ## `docs/` — the tutorial (no build step)
 

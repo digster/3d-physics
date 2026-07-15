@@ -38,7 +38,7 @@ engine with joints and soft bodies:
 | VI · Constraints & Joints| 19  | connect bodies: chains, hinges, ragdolls |
 | VII · Beyond Rigid Bodies| 20  | XPBD soft bodies (jello) |
 
-*(Parts I–VI are implemented; the last part lands soon.)*
+*(All seven parts — twenty chapters — are complete.)*
 
 ---
 
@@ -74,6 +74,7 @@ All demo binaries land in `build/bin/`.
 ./build/bin/ch17_friction        # box stacks & a pyramid: the impulse solver (Part V)
 ./build/bin/ch18_resting         # a pile settles and falls asleep (Part V)
 ./build/bin/ch19_joints          # a chain, a hinged trapdoor, and a ragdoll (Part VI)
+./build/bin/ch20_xpbd            # a jello cube that squishes and springs back (Part VII)
 ```
 
 Every 3D demo shares the same controls:

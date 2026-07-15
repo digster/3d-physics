@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ch 20 · XPBD &amp; Soft Bodies — 3D Physics From Scratch</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../js/docs.js" defer></script>
+</head>
+<body data-chapter="20">
+<article>
+  <span class="eyebrow">Part VII · Beyond Rigid Bodies · Chapter 20</span>
+  <h1>XPBD &amp; Soft Bodies</h1>
+  <p class="lead">The finale. Everything until now has been perfectly rigid. Let's make
+  something <em>squish</em>. A soft body is — one last time — a lattice of particles held
+  by distance constraints, exactly like the cloth of Chapter 9. One new idea, compliance,
+  turns those constraints into real springs, and the cube becomes jello.</p>
+
+  <h2>Goal</h2>
+  <p>Understand XPBD (Extended Position-Based Dynamics) and compliance, and use it to build
+  a jiggling jello cube. Engine: <code>physics/softbody.hpp</code>. Demo:
+  <code>chapters/20-xpbd/main.cpp</code>.</p>
+
+  <h2>Where Chapter 8 left off</h2>
+  <p>Back in <a href="08-ropes.html">Ropes</a> we satisfied a distance constraint by simply
+  snapping the two particles to the right distance — a perfectly <em>rigid</em> link. If we
+  wanted softness, our only knob was the number of iterations, which is a hack: the "spring"
+  got stiffer or softer depending on how hard the computer was working, not on any physical
+  property. For jello we want a real, tunable stiffness that means the same thing no matter
+  the timestep. That's exactly what XPBD adds.</p>
+
+  <h2>Compliance: a real spring in one extra term</h2>
+  <div class="callout intuition">
+    <span class="label">Intuition</span>
+    XPBD gives every constraint a <strong>compliance</strong> <math><mi>α</mi></math> — its
+    <em>inverse stiffness</em> (soft = big <math><mi>α</mi></math>, rigid = <math><mi>α</mi><mo>=</mo><mn>0</mn></math>).
+    Instead of snapping the constraint all the way, it solves it like a spring that's allowed
+    to stay a little bit stretched, storing an accumulated force (a Lagrange multiplier
+    <math><mi>λ</mi></math>) as it goes. The beautiful result: the stiffness you dial in is a
+    genuine material property, independent of the timestep and the iteration count — the thing
+    Chapter 8's approach could never promise.
+  </div>
+
+  <p>For a distance constraint <math><mi>C</mi><mo>=</mo><mo>|</mo><msub><mi>p</mi><mn>1</mn></msub><mo>−</mo><msub><mi>p</mi><mn>2</mn></msub><mo>|</mo><mo>−</mo><mi>L</mi></math>,
+  each solve computes a change in the multiplier and moves the particles by it:</p>
+  <div class="eq">
+    <math display="block"><mrow>
+      <mi>Δλ</mi><mo>=</mo>
+      <mfrac>
+        <mrow><mo>−</mo><mi>C</mi><mo>−</mo><mover><mi>α</mi><mo>~</mo></mover><mi>λ</mi></mrow>
+        <mrow><msub><mi>w</mi><mn>1</mn></msub><mo>+</mo><msub><mi>w</mi><mn>2</mn></msub><mo>+</mo><mover><mi>α</mi><mo>~</mo></mover></mrow>
+      </mfrac>
+      <mo>,</mo><mspace width="14px"/>
+      <mover><mi>α</mi><mo>~</mo></mover><mo>=</mo><mfrac><mi>α</mi><msup><mi>Δt</mi><mn>2</mn></msup></mfrac>
+    </mrow></math>
+  </div>
+  <p>where <math><msub><mi>w</mi><mi>i</mi></msub></math> are the inverse masses. Then each
+  particle moves along the constraint direction by
+  <math><msub><mi>w</mi><mi>i</mi></msub><mo>&#8201;</mo><mi>Δλ</mi></math>. Set
+  <math><mi>α</mi><mo>=</mo><mn>0</mn></math> and this collapses back to Chapter 8's rigid
+  snap; turn it up and the link softens into a spring. That's the whole difference between a
+  brick and a blob.</p>
+
+  <h2>Small steps beat big steps</h2>
+  <p>XPBD gets its famous stability from <strong>substepping</strong>: rather than one big
+  step with many constraint iterations, it takes many tiny steps with just <em>one</em>
+  constraint solve each. Each substep does the familiar dance — predict positions, solve the
+  constraints once, then read the new velocity back from how far things actually moved:</p>
+  <pre><code class="cpp">for (int s = 0; s &lt; substeps; ++s) {
+    for (auto&amp; p : particles) {                 // predict
+        p.prevPosition = p.position;
+        p.velocity += gravity * h;
+        p.position += p.velocity * h;
+    }
+    for (auto&amp; c : springs) { c.lambda = 0; solveXPBD(c, h); }   // solve once
+    // ...collide with the floor...
+    for (auto&amp; p : particles)                    // velocity from actual movement
+        p.velocity = (p.position - p.prevPosition) / h;
+}</code></pre>
+
+  <h2>Building a cube that keeps its shape</h2>
+  <p>A grid of particles joined only along the edges would fold flat like a cardboard box.
+  So, exactly as the cloth needed shear links, a solid needs enough constraints to resist
+  <em>every</em> way it could collapse. We weave three families through the lattice:</p>
+  <ul>
+    <li><strong>Structural</strong> — along the three axes (the edges).</li>
+    <li><strong>Shear</strong> — the face diagonals, resisting skew.</li>
+    <li><strong>Volume</strong> — the body diagonals across each cell, resisting being
+      squashed flat.</li>
+  </ul>
+  <figure class="diagram">
+    <svg viewBox="0 0 300 210" role="img" aria-label="A cube cell with structural, shear, and body-diagonal links">
+      <!-- cube cell in slight perspective -->
+      <g stroke-width="2" fill="none">
+        <polygon points="70,150 170,150 170,60 70,60" stroke="var(--d-a)"/>
+        <polygon points="110,120 210,120 210,30 110,30" stroke="var(--d-a)"/>
+        <line x1="70" y1="150" x2="110" y2="120" stroke="var(--d-a)"/>
+        <line x1="170" y1="150" x2="210" y2="120" stroke="var(--d-a)"/>
+        <line x1="170" y1="60" x2="210" y2="30" stroke="var(--d-a)"/>
+        <line x1="70" y1="60" x2="110" y2="30" stroke="var(--d-a)"/>
+      </g>
+      <line x1="70" y1="150" x2="170" y2="60" stroke="var(--d-b)" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <line x1="70" y1="150" x2="210" y2="30" stroke="var(--d-d)" stroke-width="1.5" stroke-dasharray="2 4"/>
+      <g font-size="11">
+        <text x="30" y="200" fill="var(--d-a)">— structural</text>
+        <text x="130" y="200" fill="var(--d-b)">-- shear</text>
+        <text x="220" y="200" fill="var(--d-d)">·· volume</text>
+      </g>
+    </svg>
+    <figcaption>One cell of the lattice: edges keep size, face diagonals resist skew, body
+    diagonals resist being flattened.</figcaption>
+  </figure>
+
+  <h2>Run it</h2>
+  <pre><code class="cpp">./build/bin/ch20_xpbd           # 1 jello drop · 2 stiff→soft row · 3 hanging jello</code></pre>
+  <p>Scene <kbd>1</kbd> drops a jello cube: it pancakes on impact and springs back, jiggling.
+  Scene <kbd>2</kbd> is the money shot — four cubes, stiff (green) to soft (coral), dropped
+  together: same fall, wildly different squish, all from the one compliance number.
+  Scene <kbd>3</kbd> hangs a cube by its top and lets it sag. Press <kbd>W</kbd> to see the
+  lattice of constraints underneath.</p>
+
+  <h2>Experiments</h2>
+  <ul>
+    <li>In the code, push the compliance toward 0.2 and the cube collapses into a puddle and
+      never recovers — too soft to hold itself up. Toward 0 and it's a rigid box again. Jello
+      lives in the sweet spot between.</li>
+    <li>Run scene <kbd>2</kbd> and watch the green (stiff) cube keep its shape while the coral
+      (soft) one flattens to a fraction of its height — the same drop, the same solver, one
+      parameter apart.</li>
+  </ul>
+
+  <h2>Takeaways</h2>
+  <ul>
+    <li>A soft body is a lattice of particles + distance constraints — the same idea as cloth.</li>
+    <li><strong>XPBD</strong> adds a <strong>compliance</strong> <math><mi>α</mi></math> and an
+      accumulated multiplier <math><mi>λ</mi></math>, giving a real, timestep-independent
+      stiffness (<math><mi>α</mi><mo>=</mo><mn>0</mn></math> is rigid).</li>
+    <li><strong>Substepping</strong> — many tiny steps, one solve each — is what makes it stable.</li>
+    <li>Structural + shear + <strong>volume</strong> constraints keep a solid from collapsing.</li>
+  </ul>
+
+  <div class="callout intuition">
+    <span class="label">The end — you built a physics engine</span>
+    <p>Twenty chapters ago there was an empty window. Now there's a real, if compact,
+    physics engine, written from nothing: the vector, matrix, and quaternion math; a software
+    3D renderer; stable numerical integration; particles, springs, ropes, and cloth; rigid
+    bodies that spin correctly, including the eerie Dzhanibekov flip; broadphase, SAT, and GJK
+    to find contacts; an impulse solver with restitution, friction, stacking, and sleeping to
+    resolve them; joints for chains, hinges, and ragdolls; and now soft bodies that squish and
+    spring back.</p>
+    <p>Every piece was built the hard way, on purpose — because the point was never to
+    <em>use</em> a physics engine, but to understand exactly why each part of one works.
+    From here, every simulation you meet is made of ideas you now own. Thanks for building it
+    all the way through.</p>
+  </div>
+</article>
+</body>
+</html>

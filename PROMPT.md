@@ -89,3 +89,12 @@ hinge joints, solved in the same impulse loop as contacts. Chapter 19 (hanging
 chain, hinged trapdoor, ragdoll), tests, and docs. Debugged a berserk hinge down
 to the door/frame colliders fighting the joint — fixed by exempting jointed pairs
 from collision.
+
+## 2026-07-15 — Milestone 7 (the finale)
+
+> Work on the next part.
+
+Built Part VII (Beyond Rigid Bodies): XPBD soft bodies — a particle lattice with
+compliant (springy) distance constraints, substepped. Chapter 20 (jello drop,
+stiff→soft row, hanging jello), tests, and docs. **This completes the course** —
+all 20 chapters across 7 parts, a full from-scratch rigid + soft body engine.

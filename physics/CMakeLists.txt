@@ -13,7 +13,8 @@ add_library(p3d_physics
     gjk.cpp
     solver.cpp
     world.cpp
-    joint.cpp)
+    joint.cpp
+    softbody.cpp)
 
 target_include_directories(p3d_physics PUBLIC ${CMAKE_SOURCE_DIR})
 target_link_libraries(p3d_physics PRIVATE project_warnings)

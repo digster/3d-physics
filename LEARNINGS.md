@@ -111,6 +111,18 @@ Hard-won, project-specific gotchas. Read before you trip over the same wire.
   on the body's angle at a single final frame is a coin-flip. Track the min/max over
   the run instead (e.g. "the arm dipped below −0.5 at some point").
 
+- **XPBD compliance is very non-linear — sweep it before picking a demo value.** A
+  4³ cube with structural + shear + volume constraints is stiff (many springs share
+  the load), so small compliances (0.0001–0.004) barely deform. A visible jello needs
+  α ≈ 0.01–0.03 (squishes to ~55–78% on impact, springs back); α ≈ 0.08 is very
+  squishy but recovers; α ≈ 0.2 collapses into a puddle and never recovers. Always
+  sweep and eyeball the deformation rather than guessing the constant.
+
+- **A soft cube needs volume (body-diagonal) constraints, not just edges.** Edges
+  alone fold flat; add face diagonals (shear) AND the cell's body diagonals (volume)
+  or the cube pancakes and won't hold its shape. Same lesson as cloth's shear links,
+  one dimension up.
+
 ## Rendering (software pipeline)
 
 - **Winding drives everything.** Mesh triangles are wound counter-clockwise as
